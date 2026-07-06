@@ -1,0 +1,1510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Interactive CNN on 3×3 Binary Images</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #171a23;
+    --panel2: #202432;
+    --line: #353b4f;
+    --text: #e7eaf3;
+    --muted: #aab0c0;
+    --blue: #4b8fe8;
+    --orange: #f59b3d;
+    --green: #8bd17c;
+    --warn: #f1cf65;
+    --blackpixel: #03050a;
+    --whitepixel: #edf0f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 18px 22px 12px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #151824, #0f1117);
+  }
+  header h1 {
+    margin: 0 0 6px;
+    font-size: 22px;
+    font-weight: 700;
+  }
+  header p {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.45;
+    max-width: 1180px;
+    font-size: 14px;
+  }
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 10px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    background: #121520;
+    position: sticky;
+    top: 0;
+    z-index: 4;
+  }
+  .control {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px;
+    min-height: 62px;
+  }
+  .control label {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 5px;
+  }
+  .span2 { grid-column: span 2; }
+  .span3 { grid-column: span 3; }
+  .span4 { grid-column: span 4; }
+  select, input, button {
+    font: inherit;
+  }
+  select, input[type="number"] {
+    width: 100%;
+    background: var(--panel2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px;
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: #8792aa;
+  }
+  .buttonRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: end;
+  }
+  button {
+    border: 1px solid var(--line);
+    background: var(--panel2);
+    color: var(--text);
+    padding: 9px 12px;
+    border-radius: 9px;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.12); }
+  button.primary {
+    background: #2a344a;
+    border-color: #465271;
+  }
+  button.danger {
+    background: #39212a;
+    border-color: #704052;
+  }
+  button.smallBtn {
+    padding: 7px 9px;
+    font-size: 12px;
+  }
+  .statbar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    padding: 12px 18px 0;
+  }
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .stat .label { color: var(--muted); font-size: 12px; }
+  .stat .value {
+    font-size: 19px;
+    margin-top: 3px;
+    font-variant-numeric: tabular-nums;
+  }
+  main { padding: 14px 18px 22px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(280px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    min-width: 0;
+  }
+  .cardHeader {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: start;
+    padding: 11px 12px 9px;
+  }
+  .card h2 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 650;
+  }
+  .card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 315px;
+    background: #10131d;
+    border-top: 1px solid var(--line);
+  }
+  #flowCanvas { height: 390px; }
+  #curveCanvas { height: 300px; }
+  .wide { grid-column: span 3; }
+  .explain {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    margin-top: 14px;
+    padding: 13px 14px;
+    color: var(--muted);
+    line-height: 1.48;
+    font-size: 13px;
+  }
+  .explain strong { color: var(--text); font-weight: 650; }
+  .modal {
+    position: fixed;
+    inset: 0;
+    background: #0f1117;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+  }
+  .modal.hidden { display: none; }
+  .modalTop {
+    height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--line);
+    background: #121520;
+  }
+  .modalTop strong { font-size: 15px; }
+  #modalCanvas {
+    flex: 1;
+    width: 100vw;
+    height: calc(100vh - 54px);
+    border: 0;
+  }
+  @media (max-width: 1060px) {
+    .controls { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .span2, .span3, .span4 { grid-column: span 3; }
+    .grid { grid-template-columns: 1fr; }
+    .wide { grid-column: span 1; }
+    .statbar { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Interactive CNN classifier for 3×3 binary images</h1>
+  <p>
+    The task is binary classification. A pixel value of 1 means black. The target is 1 when the 3×3 image contains a complete line of three black pixels: by default, a full row or a full column. The CNN is intentionally small: valid 3×3 convolution filters → ReLU → sigmoid output. Because the image is only 3×3, each learned filter acts as a directly visible template detector.
+  </p>
+</header>
+
+<section class="controls">
+  <div class="control span3">
+    <label for="rule">Target rule</label>
+    <select id="rule">
+      <option value="rowscols">Positive = any full row or column</option>
+      <option value="alllines">Positive = row, column, or diagonal</option>
+    </select>
+  </div>
+  <div class="control span2">
+    <label for="filters">CNN filters: <span id="filtersVal">16</span></label>
+    <input id="filters" type="range" min="4" max="24" step="1" value="16" />
+  </div>
+  <div class="control span2">
+    <label for="lr">Learning rate: <span id="lrVal">0.030</span></label>
+    <input id="lr" type="range" min="0.002" max="0.100" step="0.001" value="0.030" />
+  </div>
+  <div class="control span2">
+    <label for="batch">Batch size: <span id="batchVal">128</span></label>
+    <input id="batch" type="range" min="16" max="512" step="16" value="128" />
+  </div>
+  <div class="control span3">
+    <label>Training</label>
+    <div class="buttonRow">
+      <button id="trainBtn" class="primary">Train</button>
+      <button id="stepBtn">Step ×200</button>
+      <button id="resetBtn" class="danger">Reset CNN</button>
+    </div>
+  </div>
+  <div class="control span4">
+    <label>Selected image</label>
+    <div class="buttonRow">
+      <button id="randomBtn" class="smallBtn">Random</button>
+      <button id="positiveBtn" class="smallBtn">Positive example</button>
+      <button id="negativeBtn" class="smallBtn">Negative example</button>
+      <button id="clearBtn" class="smallBtn">Clear</button>
+    </div>
+  </div>
+</section>
+
+<section class="statbar">
+  <div class="stat"><div class="label">Optimizer updates</div><div id="stepStat" class="value">0</div></div>
+  <div class="stat"><div class="label">Cross-entropy loss</div><div id="lossStat" class="value">—</div></div>
+  <div class="stat"><div class="label">Accuracy on all 512 images</div><div id="accStat" class="value">—</div></div>
+  <div class="stat"><div class="label">Selected target</div><div id="targetStat" class="value">—</div></div>
+  <div class="stat"><div class="label">Selected prediction</div><div id="predStat" class="value">—</div></div>
+</section>
+
+<main>
+  <div class="grid">
+    <div class="card">
+      <div class="cardHeader">
+        <div>
+          <h2>1. Full dataset</h2>
+          <p>All possible 3×3 binary images exist in the dataset. Click any thumbnail to inspect it.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="dataset">Full page</button>
+      </div>
+      <canvas id="datasetCanvas"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="cardHeader">
+        <div>
+          <h2>2. Target rule</h2>
+          <p>The label is 1 when at least one of these templates is fully black inside the image.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="rule">Full page</button>
+      </div>
+      <canvas id="ruleCanvas"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="cardHeader">
+        <div>
+          <h2>3. Selected 3×3 image</h2>
+          <p>Click cells to create a custom image. Black is value 1, white is value 0.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="input">Full page</button>
+      </div>
+      <canvas id="inputCanvas"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="cardHeader">
+        <div>
+          <h2>4. Learned CNN filters</h2>
+          <p>Each 3×3 filter is a learned template. Click a filter to inspect its computation.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="filters">Full page</button>
+      </div>
+      <canvas id="filtersCanvas"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="cardHeader">
+        <div>
+          <h2>5. Selected filter computation</h2>
+          <p>The selected image is multiplied by the selected filter, summed with a bias, then passed through ReLU.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="compute">Full page</button>
+      </div>
+      <canvas id="computeCanvas"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="cardHeader">
+        <div>
+          <h2>6. Filter responses</h2>
+          <p>ReLU activations are the detected features. The output layer combines them into one probability.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="responses">Full page</button>
+      </div>
+      <canvas id="responsesCanvas"></canvas>
+    </div>
+
+    <div class="card wide">
+      <div class="cardHeader">
+        <div>
+          <h2>7. CNN forward path</h2>
+          <p>Input pixels feed every filter. ReLU keeps positive filter responses. The sigmoid maps the final logit to class 1 probability.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="flow">Full page</button>
+      </div>
+      <canvas id="flowCanvas"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="cardHeader">
+        <div>
+          <h2>8. Backpropagation view</h2>
+          <p>Signed gradients show which pixels and selected-filter weights would most change the current loss.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="backprop">Full page</button>
+      </div>
+      <canvas id="backpropCanvas"></canvas>
+    </div>
+
+    <div class="card wide">
+      <div class="cardHeader">
+        <div>
+          <h2>9. Training curve</h2>
+          <p>Loss should decrease and accuracy should approach 100% on the exhaustive 512-image dataset.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="curve">Full page</button>
+      </div>
+      <canvas id="curveCanvas"></canvas>
+    </div>
+  </div>
+
+  <div class="explain">
+    <strong>Architecture:</strong> 3×3 input → multiple trainable 3×3 convolution filters → ReLU → weighted sum → sigmoid.
+    With a 3×3 input, a valid 3×3 convolution produces one scalar response per filter. This makes the CNN behave like a bank of learned pattern detectors. During backpropagation, the sigmoid gives an error term <code>p − y</code>, the output weights send that error back into the active ReLU filters, and inactive ReLUs block their gradient.
+  </div>
+</main>
+
+<div id="modal" class="modal hidden">
+  <div class="modalTop">
+    <strong id="modalTitle">Full page chart</strong>
+    <button id="modalClose">Close</button>
+  </div>
+  <canvas id="modalCanvas"></canvas>
+</div>
+
+<script>
+"use strict";
+
+const COLORS = {
+  bg: "#10131d",
+  panel: "#171a23",
+  line: "#353b4f",
+  text: "#e7eaf3",
+  muted: "#aab0c0",
+  blue: [75, 143, 232],
+  orange: [245, 155, 61],
+  green: [139, 209, 124],
+  warn: [241, 207, 101],
+  whitePixel: "#edf0f6",
+  blackPixel: "#03050a"
+};
+
+const $ = (id) => document.getElementById(id);
+
+const controls = {
+  rule: $("rule"),
+  filters: $("filters"),
+  lr: $("lr"),
+  batch: $("batch"),
+  trainBtn: $("trainBtn"),
+  stepBtn: $("stepBtn"),
+  resetBtn: $("resetBtn"),
+  randomBtn: $("randomBtn"),
+  positiveBtn: $("positiveBtn"),
+  negativeBtn: $("negativeBtn"),
+  clearBtn: $("clearBtn")
+};
+
+const canvases = {
+  dataset: $("datasetCanvas"),
+  rule: $("ruleCanvas"),
+  input: $("inputCanvas"),
+  filters: $("filtersCanvas"),
+  compute: $("computeCanvas"),
+  responses: $("responsesCanvas"),
+  flow: $("flowCanvas"),
+  backprop: $("backpropCanvas"),
+  curve: $("curveCanvas")
+};
+
+const viewTitles = {
+  dataset: "Full dataset",
+  rule: "Target rule",
+  input: "Selected 3×3 image",
+  filters: "Learned CNN filters",
+  compute: "Selected filter computation",
+  responses: "Filter responses",
+  flow: "CNN forward path",
+  backprop: "Backpropagation view",
+  curve: "Training curve"
+};
+
+let rng = mulberry32(1);
+let allImages = [];
+let labels = [];
+let galleryOrder = [];
+let selectedImage = Array(9).fill(0);
+let selectedIndex = -1;
+let selectedFilter = 0;
+let model = null;
+let training = false;
+let updateCount = 0;
+let metrics = { loss: NaN, acc: NaN };
+let history = [];
+let fullView = null;
+
+function mulberry32(seed) {
+  return function() {
+    let t = seed += 0x6D2B79F5;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function randn() {
+  let u = 0, v = 0;
+  while (u === 0) u = rng();
+  while (v === 0) v = rng();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function rgb(c, a = 1) {
+  return `rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},${a})`;
+}
+
+function mix(c0, c1, t, a = 1) {
+  t = clamp(t, 0, 1);
+  return rgb([lerp(c0[0], c1[0], t), lerp(c0[1], c1[1], t), lerp(c0[2], c1[2], t)], a);
+}
+
+function signedColor(v, maxAbs, alpha = 1) {
+  const base = [35, 40, 56];
+  const t = maxAbs <= 1e-9 ? 0 : clamp(Math.abs(v) / maxAbs, 0, 1);
+  return v >= 0 ? mix(base, COLORS.orange, t, alpha) : mix(base, COLORS.blue, t, alpha);
+}
+
+function labelColor(y, alpha = 1) {
+  return y ? rgb(COLORS.orange, alpha) : rgb(COLORS.blue, alpha);
+}
+
+function sigmoid(x) {
+  if (x >= 0) {
+    const z = Math.exp(-x);
+    return 1 / (1 + z);
+  }
+  const z = Math.exp(x);
+  return z / (1 + z);
+}
+
+function buildDataset() {
+  allImages = [];
+  for (let mask = 0; mask < 512; mask++) {
+    const img = [];
+    for (let i = 0; i < 9; i++) img.push((mask >> i) & 1);
+    allImages.push(img);
+  }
+  labels = allImages.map(targetFor);
+  galleryOrder = Array.from({ length: 512 }, (_, i) => i);
+  rng = mulberry32(2029);
+  for (let i = galleryOrder.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [galleryOrder[i], galleryOrder[j]] = [galleryOrder[j], galleryOrder[i]];
+  }
+}
+
+function ruleLines() {
+  const lines = [
+    { name: "row 1", cells: [0,1,2] },
+    { name: "row 2", cells: [3,4,5] },
+    { name: "row 3", cells: [6,7,8] },
+    { name: "column 1", cells: [0,3,6] },
+    { name: "column 2", cells: [1,4,7] },
+    { name: "column 3", cells: [2,5,8] }
+  ];
+  if (controls.rule.value === "alllines") {
+    lines.push({ name: "diagonal 1", cells: [0,4,8] });
+    lines.push({ name: "diagonal 2", cells: [2,4,6] });
+  }
+  return lines;
+}
+
+function targetFor(img) {
+  return ruleLines().some(line => line.cells.every(i => img[i] === 1)) ? 1 : 0;
+}
+
+function matchingLines(img) {
+  return ruleLines().filter(line => line.cells.every(i => img[i] === 1));
+}
+
+function selectRandom(label = null) {
+  const candidates = [];
+  for (let i = 0; i < allImages.length; i++) {
+    if (label === null || labels[i] === label) candidates.push(i);
+  }
+  const idx = candidates[Math.floor(rng() * candidates.length)];
+  selectedIndex = idx;
+  selectedImage = allImages[idx].slice();
+}
+
+function initModel() {
+  const F = parseInt(controls.filters.value, 10);
+  rng = mulberry32(1000 + F * 97 + (controls.rule.value === "alllines" ? 41 : 0));
+  const scaleW = Math.sqrt(2 / 9);
+  const scaleV = Math.sqrt(1 / Math.max(1, F));
+
+  const W = [];
+  for (let f = 0; f < F; f++) {
+    const row = [];
+    for (let i = 0; i < 9; i++) row.push(scaleW * randn());
+    W.push(row);
+  }
+
+  const posRate = labels.reduce((a, b) => a + b, 0) / labels.length;
+  const initialBias = Math.log(posRate / Math.max(1e-9, 1 - posRate));
+
+  model = {
+    F,
+    W,
+    b: Array(F).fill(0.02),
+    V: Array.from({ length: F }, () => scaleV * randn()),
+    c: initialBias,
+    mW: Array.from({ length: F }, () => Array(9).fill(0)),
+    vW: Array.from({ length: F }, () => Array(9).fill(0)),
+    mb: Array(F).fill(0),
+    vb: Array(F).fill(0),
+    mV: Array(F).fill(0),
+    vV: Array(F).fill(0),
+    mc: 0,
+    vc: 0,
+    t: 0
+  };
+
+  updateCount = 0;
+  history = [];
+  selectedFilter = Math.min(selectedFilter, F - 1);
+  recordHistory();
+}
+
+function forward(img) {
+  const z = Array(model.F).fill(0);
+  const a = Array(model.F).fill(0);
+  for (let f = 0; f < model.F; f++) {
+    let s = model.b[f];
+    for (let i = 0; i < 9; i++) s += model.W[f][i] * img[i];
+    z[f] = s;
+    a[f] = Math.max(0, s);
+  }
+  let logit = model.c;
+  for (let f = 0; f < model.F; f++) logit += model.V[f] * a[f];
+  const prob = sigmoid(logit);
+  return { z, a, logit, prob };
+}
+
+function backwardOne(img, y) {
+  const fwd = forward(img);
+  const dlogit = fwd.prob - y;
+
+  const gW = Array.from({ length: model.F }, () => Array(9).fill(0));
+  const gb = Array(model.F).fill(0);
+  const gV = Array(model.F).fill(0);
+  const gx = Array(9).fill(0);
+  const dz = Array(model.F).fill(0);
+
+  for (let f = 0; f < model.F; f++) {
+    gV[f] = fwd.a[f] * dlogit;
+    const da = model.V[f] * dlogit;
+    dz[f] = fwd.z[f] > 0 ? da : 0;
+    gb[f] = dz[f];
+    for (let i = 0; i < 9; i++) {
+      gW[f][i] = dz[f] * img[i];
+      gx[i] += model.W[f][i] * dz[f];
+    }
+  }
+
+  return { fwd, dlogit, dz, gW, gb, gV, gc: dlogit, gx };
+}
+
+function zeroGrads() {
+  return {
+    W: Array.from({ length: model.F }, () => Array(9).fill(0)),
+    b: Array(model.F).fill(0),
+    V: Array(model.F).fill(0),
+    c: 0
+  };
+}
+
+function trainStep(n) {
+  const B = parseInt(controls.batch.value, 10);
+  const lr = parseFloat(controls.lr.value);
+
+  for (let step = 0; step < n; step++) {
+    const g = zeroGrads();
+
+    for (let bi = 0; bi < B; bi++) {
+      const idx = Math.floor(rng() * allImages.length);
+      const img = allImages[idx];
+      const y = labels[idx];
+      const back = backwardOne(img, y);
+
+      for (let f = 0; f < model.F; f++) {
+        for (let i = 0; i < 9; i++) g.W[f][i] += back.gW[f][i] / B;
+        g.b[f] += back.gb[f] / B;
+        g.V[f] += back.gV[f] / B;
+      }
+      g.c += back.gc / B;
+    }
+
+    applyAdam(g, lr);
+    updateCount++;
+
+    if (updateCount % 10 === 0) recordHistory();
+  }
+}
+
+function applyAdam(g, lr) {
+  const beta1 = 0.9;
+  const beta2 = 0.999;
+  const eps = 1e-8;
+  model.t++;
+  const t = model.t;
+
+  for (let f = 0; f < model.F; f++) {
+    for (let i = 0; i < 9; i++) {
+      model.mW[f][i] = beta1 * model.mW[f][i] + (1 - beta1) * g.W[f][i];
+      model.vW[f][i] = beta2 * model.vW[f][i] + (1 - beta2) * g.W[f][i] * g.W[f][i];
+      const mh = model.mW[f][i] / (1 - Math.pow(beta1, t));
+      const vh = model.vW[f][i] / (1 - Math.pow(beta2, t));
+      model.W[f][i] -= lr * mh / (Math.sqrt(vh) + eps);
+    }
+
+    model.mb[f] = beta1 * model.mb[f] + (1 - beta1) * g.b[f];
+    model.vb[f] = beta2 * model.vb[f] + (1 - beta2) * g.b[f] * g.b[f];
+    model.b[f] -= lr * (model.mb[f] / (1 - Math.pow(beta1, t))) / (Math.sqrt(model.vb[f] / (1 - Math.pow(beta2, t))) + eps);
+
+    model.mV[f] = beta1 * model.mV[f] + (1 - beta1) * g.V[f];
+    model.vV[f] = beta2 * model.vV[f] + (1 - beta2) * g.V[f] * g.V[f];
+    model.V[f] -= lr * (model.mV[f] / (1 - Math.pow(beta1, t))) / (Math.sqrt(model.vV[f] / (1 - Math.pow(beta2, t))) + eps);
+  }
+
+  model.mc = beta1 * model.mc + (1 - beta1) * g.c;
+  model.vc = beta2 * model.vc + (1 - beta2) * g.c * g.c;
+  model.c -= lr * (model.mc / (1 - Math.pow(beta1, t))) / (Math.sqrt(model.vc / (1 - Math.pow(beta2, t))) + eps);
+}
+
+function evaluate() {
+  let loss = 0;
+  let correct = 0;
+  for (let i = 0; i < allImages.length; i++) {
+    const fwd = forward(allImages[i]);
+    const y = labels[i];
+    const p = clamp(fwd.prob, 1e-9, 1 - 1e-9);
+    loss += -(y * Math.log(p) + (1 - y) * Math.log(1 - p));
+    const pred = fwd.prob >= 0.5 ? 1 : 0;
+    if (pred === y) correct++;
+  }
+  return { loss: loss / allImages.length, acc: correct / allImages.length };
+}
+
+function recordHistory() {
+  if (!model || !allImages.length) return;
+  metrics = evaluate();
+  history.push({ step: updateCount, loss: metrics.loss, acc: metrics.acc });
+  if (history.length > 420) history.shift();
+}
+
+function setupHiDPI(canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const width = Math.max(50, Math.round(rect.width * dpr));
+  const height = Math.max(50, Math.round(rect.height * dpr));
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+
+function clear(ctx, w, h) {
+  ctx.fillStyle = COLORS.bg;
+  ctx.fillRect(0, 0, w, h);
+}
+
+function text(ctx, s, x, y, opts = {}) {
+  ctx.fillStyle = opts.color || COLORS.muted;
+  ctx.font = `${opts.weight || 400} ${opts.size || 12}px Inter, system-ui, sans-serif`;
+  ctx.textAlign = opts.align || "left";
+  ctx.textBaseline = opts.baseline || "alphabetic";
+  ctx.fillText(s, x, y);
+}
+
+function line(ctx, x1, y1, x2, y2, color = COLORS.line, width = 1) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+}
+
+function arrow(ctx, x1, y1, x2, y2, color = COLORS.muted, width = 1.4) {
+  line(ctx, x1, y1, x2, y2, color, width);
+  const a = Math.atan2(y2 - y1, x2 - x1);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - 8 * Math.cos(a - 0.45), y2 - 8 * Math.sin(a - 0.45));
+  ctx.lineTo(x2 - 8 * Math.cos(a + 0.45), y2 - 8 * Math.sin(a + 0.45));
+  ctx.closePath();
+  ctx.fill();
+}
+
+function roundRect(ctx, x, y, w, h, r, fill = true, stroke = false) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  if (fill) ctx.fill();
+  if (stroke) ctx.stroke();
+}
+
+function drawBinaryGrid(ctx, x, y, size, img, opts = {}) {
+  const cell = size / 3;
+  const matches = opts.highlight ? matchingLines(img) : [];
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      const i = r * 3 + c;
+      ctx.fillStyle = img[i] ? COLORS.blackPixel : COLORS.whitePixel;
+      ctx.fillRect(x + c * cell, y + r * cell, cell, cell);
+      ctx.strokeStyle = "#394154";
+      ctx.lineWidth = Math.max(1, size / 140);
+      ctx.strokeRect(x + c * cell, y + r * cell, cell, cell);
+    }
+  }
+
+  if (matches.length) {
+    ctx.strokeStyle = rgb(COLORS.orange, 0.95);
+    ctx.lineWidth = Math.max(2, size / 38);
+    for (const m of matches) {
+      for (const i of m.cells) {
+        const r = Math.floor(i / 3), c = i % 3;
+        ctx.strokeRect(x + c * cell + 2, y + r * cell + 2, cell - 4, cell - 4);
+      }
+    }
+  }
+
+  if (opts.borderColor) {
+    ctx.strokeStyle = opts.borderColor;
+    ctx.lineWidth = opts.borderWidth || 2;
+    ctx.strokeRect(x, y, size, size);
+  }
+}
+
+function drawValueGrid(ctx, x, y, size, values, opts = {}) {
+  const maxAbs = opts.maxAbs || Math.max(1e-6, ...values.map(v => Math.abs(v)));
+  const cell = size / 3;
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      const i = r * 3 + c;
+      ctx.fillStyle = signedColor(values[i], maxAbs, 0.96);
+      ctx.fillRect(x + c * cell, y + r * cell, cell, cell);
+      ctx.strokeStyle = "#394154";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + c * cell, y + r * cell, cell, cell);
+
+      if (cell >= 26) {
+        const v = values[i];
+        text(ctx, Math.abs(v) >= 10 ? v.toFixed(0) : v.toFixed(2), x + c * cell + cell / 2, y + r * cell + cell / 2 + 4, {
+          color: "#f4f6fb",
+          size: cell >= 40 ? 12 : 10,
+          align: "center"
+        });
+      }
+    }
+  }
+  if (opts.borderColor) {
+    ctx.strokeStyle = opts.borderColor;
+    ctx.lineWidth = opts.borderWidth || 2;
+    ctx.strokeRect(x, y, size, size);
+  }
+}
+
+function drawDataset(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  const margin = 14;
+  text(ctx, "Orange border = target 1. Blue border = target 0.", margin, 20, { color: COLORS.muted });
+
+  const availableH = h - 40;
+  const cell = clamp(Math.floor(Math.min((w - 2 * margin) / 24, availableH / 12)), 13, 22);
+  const gap = 5;
+  const thumb = cell;
+  const cols = Math.max(1, Math.floor((w - 2 * margin) / (thumb + gap)));
+  const rows = Math.max(1, Math.floor((h - 42) / (thumb + gap)));
+  const count = Math.min(galleryOrder.length, cols * rows);
+
+  for (let n = 0; n < count; n++) {
+    const idx = galleryOrder[n];
+    const col = n % cols;
+    const row = Math.floor(n / cols);
+    const x = margin + col * (thumb + gap);
+    const y = 36 + row * (thumb + gap);
+    drawBinaryGrid(ctx, x, y, thumb, allImages[idx], {
+      borderColor: labelColor(labels[idx], idx === selectedIndex ? 1 : 0.65),
+      borderWidth: idx === selectedIndex ? 3 : 1.4
+    });
+  }
+
+  if (count < 512) {
+    text(ctx, `Showing ${count} of 512. Open full page or resize to see more.`, w - margin, h - 12, {
+      color: COLORS.muted,
+      align: "right"
+    });
+  } else {
+    text(ctx, "All 512 images are visible.", w - margin, h - 12, { color: COLORS.muted, align: "right" });
+  }
+}
+
+function datasetHit(canvas, evt) {
+  const rect = canvas.getBoundingClientRect();
+  const mx = evt.clientX - rect.left;
+  const my = evt.clientY - rect.top;
+  const margin = 14;
+  const availableH = rect.height - 40;
+  const cell = clamp(Math.floor(Math.min((rect.width - 2 * margin) / 24, availableH / 12)), 13, 22);
+  const gap = 5;
+  const thumb = cell;
+  const cols = Math.max(1, Math.floor((rect.width - 2 * margin) / (thumb + gap)));
+  const rows = Math.max(1, Math.floor((rect.height - 42) / (thumb + gap)));
+  const col = Math.floor((mx - margin) / (thumb + gap));
+  const row = Math.floor((my - 36) / (thumb + gap));
+  if (col < 0 || row < 0 || col >= cols || row >= rows) return null;
+  const localX = (mx - margin) - col * (thumb + gap);
+  const localY = (my - 36) - row * (thumb + gap);
+  if (localX < 0 || localY < 0 || localX > thumb || localY > thumb) return null;
+  const n = row * cols + col;
+  return n >= 0 && n < galleryOrder.length ? galleryOrder[n] : null;
+}
+
+function drawRule(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  const lines = ruleLines();
+  text(ctx, "Positive examples contain at least one complete black line:", 16, 22, { color: COLORS.text, size: 13 });
+  const cols = w > 520 ? 4 : 3;
+  const size = clamp(Math.min((w - 42) / cols, 72), 52, 74);
+  const gapX = (w - cols * size) / (cols + 1);
+  const rows = Math.ceil(lines.length / cols);
+  const startY = Math.max(46, (h - rows * (size + 28)) / 2 + 10);
+
+  for (let k = 0; k < lines.length; k++) {
+    const col = k % cols;
+    const row = Math.floor(k / cols);
+    const x = gapX + col * (size + gapX);
+    const y = startY + row * (size + 28);
+    const img = Array(9).fill(0);
+    for (const i of lines[k].cells) img[i] = 1;
+    drawBinaryGrid(ctx, x, y, size, img, { borderColor: rgb(COLORS.orange, 0.9), borderWidth: 2 });
+    text(ctx, lines[k].name, x + size / 2, y + size + 18, { align: "center", color: COLORS.muted });
+  }
+
+  const positives = labels.reduce((a, b) => a + b, 0);
+  text(ctx, `${positives} positive images, ${512 - positives} negative images. Extra black pixels are allowed.`, 16, h - 16, {
+    color: COLORS.muted
+  });
+}
+
+function drawInput(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  const y = targetFor(selectedImage);
+  const fwd = forward(selectedImage);
+  const pred = fwd.prob >= 0.5 ? 1 : 0;
+  const size = clamp(Math.min(w * 0.52, h - 98), 130, 210);
+  const x0 = (w - size) / 2;
+  const y0 = 42;
+
+  text(ctx, "Click cells to toggle pixel values.", 16, 22, { color: COLORS.muted });
+  drawBinaryGrid(ctx, x0, y0, size, selectedImage, {
+    highlight: true,
+    borderColor: labelColor(y, 0.95),
+    borderWidth: 3
+  });
+
+  const barX = 32;
+  const barY = y0 + size + 36;
+  const barW = w - 64;
+  const p = fwd.prob;
+  ctx.fillStyle = "#232838";
+  roundRect(ctx, barX, barY, barW, 20, 5, true, false);
+  ctx.fillStyle = mix(COLORS.blue, COLORS.orange, p, 0.95);
+  roundRect(ctx, barX, barY, barW * p, 20, 5, true, false);
+  text(ctx, `P(target = 1) = ${p.toFixed(3)}`, barX, barY - 8, { color: COLORS.text, size: 13 });
+  text(ctx, `target ${y}, prediction ${pred}`, barX + barW, barY - 8, {
+    color: pred === y ? rgb(COLORS.green) : rgb(COLORS.warn),
+    size: 13,
+    align: "right"
+  });
+
+  const matches = matchingLines(selectedImage);
+  const matchText = matches.length ? `Matched: ${matches.map(m => m.name).join(", ")}` : "No complete target line.";
+  text(ctx, matchText, 16, h - 16, { color: COLORS.muted });
+}
+
+function inputHit(canvas, evt) {
+  const rect = canvas.getBoundingClientRect();
+  const w = rect.width, h = rect.height;
+  const size = clamp(Math.min(w * 0.52, h - 98), 130, 210);
+  const x0 = (w - size) / 2;
+  const y0 = 42;
+  const mx = evt.clientX - rect.left;
+  const my = evt.clientY - rect.top;
+  if (mx < x0 || my < y0 || mx > x0 + size || my > y0 + size) return null;
+  const c = Math.floor((mx - x0) / (size / 3));
+  const r = Math.floor((my - y0) / (size / 3));
+  return r * 3 + c;
+}
+
+function drawFilters(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  const maxAbs = Math.max(1e-6, ...model.W.flat().map(Math.abs));
+  const margin = 14;
+  const cols = w > 900 ? 8 : (w > 560 ? 6 : 4);
+  const tile = clamp(Math.min((w - margin * 2 - (cols - 1) * 14) / cols, 82), 48, 82);
+  const gapX = (w - margin * 2 - cols * tile) / Math.max(1, cols - 1);
+  const vertical = tile + 38;
+
+  text(ctx, "Positive weights are orange, negative weights are blue. Selected filter has a bright border.", margin, 20, {
+    color: COLORS.muted
+  });
+
+  for (let f = 0; f < model.F; f++) {
+    const col = f % cols;
+    const row = Math.floor(f / cols);
+    const x = margin + col * (tile + gapX);
+    const y = 38 + row * vertical;
+    const border = f === selectedFilter ? "#ffffff" : signedColor(model.V[f], Math.max(1e-6, ...model.V.map(Math.abs)), 0.9);
+    drawValueGrid(ctx, x, y, tile, model.W[f], { maxAbs, borderColor: border, borderWidth: f === selectedFilter ? 3 : 1.6 });
+    text(ctx, `F${f}`, x, y + tile + 14, { color: COLORS.text, size: 12 });
+    text(ctx, `b ${model.b[f].toFixed(2)}   out ${model.V[f].toFixed(2)}`, x, y + tile + 29, {
+      color: COLORS.muted,
+      size: 11
+    });
+  }
+}
+
+function filterHit(canvas, evt) {
+  const rect = canvas.getBoundingClientRect();
+  const w = rect.width;
+  const margin = 14;
+  const cols = w > 900 ? 8 : (w > 560 ? 6 : 4);
+  const tile = clamp(Math.min((w - margin * 2 - (cols - 1) * 14) / cols, 82), 48, 82);
+  const gapX = (w - margin * 2 - cols * tile) / Math.max(1, cols - 1);
+  const vertical = tile + 38;
+  const mx = evt.clientX - rect.left;
+  const my = evt.clientY - rect.top;
+  for (let f = 0; f < model.F; f++) {
+    const col = f % cols;
+    const row = Math.floor(f / cols);
+    const x = margin + col * (tile + gapX);
+    const y = 38 + row * vertical;
+    if (mx >= x && mx <= x + tile && my >= y && my <= y + tile) return f;
+  }
+  return null;
+}
+
+function drawCompute(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  selectedFilter = clamp(selectedFilter, 0, model.F - 1);
+  const f = selectedFilter;
+  const fwd = forward(selectedImage);
+  const products = selectedImage.map((v, i) => v * model.W[f][i]);
+  const sum = products.reduce((a, b) => a + b, 0);
+  const z = sum + model.b[f];
+  const a = Math.max(0, z);
+  const maxAbs = Math.max(1e-6, ...model.W[f].map(Math.abs), ...products.map(Math.abs));
+
+  text(ctx, `Selected filter F${f}`, 16, 24, { color: COLORS.text, size: 14, weight: 650 });
+
+  const size = clamp(Math.min((w - 92) / 3, h - 126), 68, 118);
+  const y = 58;
+  const x1 = 18;
+  const x2 = (w - size) / 2;
+  const x3 = w - size - 18;
+
+  drawBinaryGrid(ctx, x1, y, size, selectedImage, { borderColor: "#48516b" });
+  text(ctx, "input", x1 + size / 2, y + size + 18, { align: "center", color: COLORS.muted });
+
+  drawValueGrid(ctx, x2, y, size, model.W[f], { maxAbs, borderColor: "#48516b" });
+  text(ctx, "filter weights", x2 + size / 2, y + size + 18, { align: "center", color: COLORS.muted });
+
+  drawValueGrid(ctx, x3, y, size, products, { maxAbs, borderColor: "#48516b" });
+  text(ctx, "input × filter", x3 + size / 2, y + size + 18, { align: "center", color: COLORS.muted });
+
+  arrow(ctx, x1 + size + 12, y + size / 2, x2 - 12, y + size / 2, COLORS.muted, 1.4);
+  arrow(ctx, x2 + size + 12, y + size / 2, x3 - 12, y + size / 2, COLORS.muted, 1.4);
+
+  const boxY = y + size + 48;
+  ctx.fillStyle = "#202432";
+  roundRect(ctx, 18, boxY, w - 36, 58, 10, true, false);
+  text(ctx, `dot(input, F${f}) = ${sum.toFixed(3)}     bias = ${model.b[f].toFixed(3)}     z = ${z.toFixed(3)}`, 32, boxY + 23, {
+    color: COLORS.text,
+    size: 13
+  });
+  text(ctx, `ReLU(z) = max(0, z) = ${a.toFixed(3)}     output contribution = activation × output weight = ${(a * model.V[f]).toFixed(3)}`, 32, boxY + 45, {
+    color: COLORS.muted,
+    size: 12
+  });
+
+  const active = fwd.z[f] > 0;
+  text(ctx, active ? "This filter is active for the selected image." : "This filter is inactive: ReLU blocks its forward value and local gradient.", 18, h - 16, {
+    color: active ? rgb(COLORS.green) : COLORS.muted
+  });
+}
+
+function drawResponses(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  const fwd = forward(selectedImage);
+  const contributions = fwd.a.map((a, f) => a * model.V[f]);
+  const maxAct = Math.max(1e-6, ...fwd.a.map(Math.abs));
+  const maxContrib = Math.max(1e-6, ...contributions.map(Math.abs));
+  const margin = 36;
+  const top = 48;
+  const mid = h * 0.50;
+  const bottom = h - 46;
+  const barW = Math.max(5, (w - 2 * margin) / model.F * 0.62);
+  const step = (w - 2 * margin) / model.F;
+
+  text(ctx, "Top bars: ReLU filter activations. Bottom bars: signed output contributions.", margin, 22, {
+    color: COLORS.muted
+  });
+
+  line(ctx, margin - 10, mid, w - margin + 10, mid, COLORS.line, 1);
+  text(ctx, "activation", margin, top - 14, { color: COLORS.text, size: 12 });
+  text(ctx, "contribution", margin, bottom + 28, { color: COLORS.text, size: 12 });
+
+  for (let f = 0; f < model.F; f++) {
+    const x = margin + f * step + (step - barW) / 2;
+
+    const actH = (mid - top - 12) * fwd.a[f] / maxAct;
+    ctx.fillStyle = f === selectedFilter ? rgb(COLORS.green, 0.95) : rgb(COLORS.green, 0.58);
+    roundRect(ctx, x, mid - 10 - actH, barW, actH, 4, true, false);
+
+    const c = contributions[f];
+    const hC = (bottom - mid - 20) * Math.abs(c) / maxContrib;
+    ctx.fillStyle = signedColor(c, maxContrib, f === selectedFilter ? 0.95 : 0.72);
+    if (c >= 0) roundRect(ctx, x, mid + 10, barW, hC, 4, true, false);
+    else roundRect(ctx, x, mid + 10 - hC, barW, hC, 4, true, false);
+
+    if (f === selectedFilter) {
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x - 3, top - 4, barW + 6, bottom - top + 12);
+    }
+
+    if (step > 22) text(ctx, String(f), x + barW / 2, bottom + 15, { align: "center", color: COLORS.muted, size: 10 });
+  }
+
+  const p = fwd.prob;
+  const y = targetFor(selectedImage);
+  const pred = p >= 0.5 ? 1 : 0;
+  const boxW = Math.min(340, w - 40);
+  const boxX = w - boxW - 18;
+  const boxY = 40;
+  ctx.fillStyle = "rgba(32,36,50,0.92)";
+  roundRect(ctx, boxX, boxY, boxW, 70, 10, true, false);
+  text(ctx, `logit = ${fwd.logit.toFixed(3)}`, boxX + 16, boxY + 24, { color: COLORS.text, size: 13 });
+  text(ctx, `sigmoid(logit) = P(target=1) = ${p.toFixed(3)}`, boxX + 16, boxY + 44, { color: COLORS.muted, size: 12 });
+  text(ctx, pred === y ? "correct" : "wrong", boxX + boxW - 16, boxY + 44, {
+    color: pred === y ? rgb(COLORS.green) : rgb(COLORS.warn),
+    align: "right",
+    size: 12
+  });
+}
+
+function drawFlow(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  const y = targetFor(selectedImage);
+  const back = backwardOne(selectedImage, y);
+  const fwd = back.fwd;
+  const p = fwd.prob;
+  const pred = p >= 0.5 ? 1 : 0;
+
+  const inputSize = clamp(h * 0.42, 118, 175);
+  const inputX = 42;
+  const inputY = h / 2 - inputSize / 2;
+  drawBinaryGrid(ctx, inputX, inputY, inputSize, selectedImage, {
+    highlight: true,
+    borderColor: labelColor(y, 0.95),
+    borderWidth: 3
+  });
+  text(ctx, "input image", inputX + inputSize / 2, inputY + inputSize + 22, { align: "center", color: COLORS.muted });
+
+  const filterX = w * 0.38;
+  const reluX = w * 0.58;
+  const outX = w - 110;
+  const top = 56;
+  const bottom = h - 66;
+  const shown = Math.min(model.F, 16);
+  const maxAct = Math.max(1e-6, ...fwd.a.map(Math.abs));
+  const maxGrad = Math.max(1e-6, ...back.dz.map(Math.abs));
+  const maxOutW = Math.max(1e-6, ...model.V.map(Math.abs));
+  const ys = [];
+  for (let i = 0; i < shown; i++) ys.push(shown === 1 ? h / 2 : top + i * (bottom - top) / (shown - 1));
+
+  text(ctx, "3×3 filters", filterX, 26, { align: "center", color: COLORS.text, size: 13, weight: 650 });
+  text(ctx, "ReLU activations", reluX, 26, { align: "center", color: COLORS.text, size: 13, weight: 650 });
+  text(ctx, "sigmoid output", outX, 26, { align: "center", color: COLORS.text, size: 13, weight: 650 });
+
+  // Draw selected-filter input connections.
+  const selectedY = ys[Math.min(selectedFilter, shown - 1)] || h / 2;
+  const cell = inputSize / 3;
+  const maxW = Math.max(1e-6, ...model.W[selectedFilter].map(Math.abs));
+  for (let i = 0; i < 9; i++) {
+    const r = Math.floor(i / 3), c = i % 3;
+    const px = inputX + c * cell + cell / 2;
+    const py = inputY + r * cell + cell / 2;
+    const weight = model.W[selectedFilter][i];
+    const alpha = 0.10 + 0.32 * Math.abs(weight) / maxW;
+    const color = weight >= 0 ? rgb(COLORS.orange, alpha) : rgb(COLORS.blue, alpha);
+    line(ctx, px, py, filterX - 16, selectedY, color, 0.8 + 2.2 * Math.abs(weight) / maxW);
+  }
+
+  for (let f = 0; f < shown; f++) {
+    const yy = ys[f];
+    const active = fwd.z[f] > 0;
+    const act = clamp(fwd.a[f] / maxAct, 0, 1);
+    const grad = clamp(Math.abs(back.dz[f]) / maxGrad, 0, 1);
+
+    ctx.fillStyle = f === selectedFilter ? "#ffffff" : (active ? mix([32,36,50], COLORS.green, act, 0.95) : "rgba(74,80,103,0.75)");
+    ctx.strokeStyle = f === selectedFilter ? "#ffffff" : "#8792aa";
+    ctx.lineWidth = f === selectedFilter ? 2.3 : 1;
+    ctx.beginPath();
+    ctx.arc(filterX, yy, 13, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = rgb(COLORS.orange, 0.25 + 0.7 * grad);
+    ctx.lineWidth = 1.2 + 4 * grad;
+    ctx.beginPath();
+    ctx.arc(filterX, yy, 18, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * Math.max(0.03, grad));
+    ctx.stroke();
+
+    text(ctx, `F${f}`, filterX, yy + 4, { align: "center", color: f === selectedFilter ? "#0f1117" : COLORS.text, size: 10 });
+
+    // Filter to ReLU edge.
+    arrow(ctx, filterX + 18, yy, reluX - 20, yy, active ? rgb(COLORS.green, 0.45) : "rgba(120,126,148,0.26)", 1.2);
+
+    ctx.fillStyle = active ? mix([32,36,50], COLORS.green, act, 0.95) : "rgba(74,80,103,0.75)";
+    ctx.strokeStyle = active ? rgb(COLORS.green, 0.9) : "#5f687f";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(reluX, yy, 13, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.stroke();
+    text(ctx, fwd.a[f].toFixed(1), reluX, yy + 4, { align: "center", color: COLORS.text, size: 10 });
+
+    // ReLU to output edge.
+    const ow = model.V[f];
+    const alpha = 0.10 + 0.35 * Math.abs(ow) / maxOutW;
+    const color = ow >= 0 ? rgb(COLORS.orange, alpha) : rgb(COLORS.blue, alpha);
+    line(ctx, reluX + 15, yy, outX - 28, h / 2, color, 0.8 + 2.8 * Math.abs(ow) / maxOutW);
+  }
+
+  if (model.F > shown) {
+    text(ctx, `showing ${shown}/${model.F} filters`, filterX, h - 22, { align: "center", color: COLORS.muted });
+  }
+
+  const radius = 38;
+  ctx.fillStyle = mix(COLORS.blue, COLORS.orange, p, 0.95);
+  ctx.strokeStyle = pred === y ? rgb(COLORS.green) : rgb(COLORS.warn);
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(outX, h / 2, radius, 0, 2 * Math.PI);
+  ctx.fill();
+  ctx.stroke();
+  text(ctx, p.toFixed(2), outX, h / 2 + 6, { align: "center", color: "#0f1117", size: 20, weight: 700 });
+  text(ctx, `target ${y}, pred ${pred}`, outX, h / 2 + radius + 24, {
+    align: "center",
+    color: pred === y ? rgb(COLORS.green) : rgb(COLORS.warn),
+    size: 12
+  });
+
+  text(ctx, "Bright orange rings indicate backpropagated error through active filters. Grey filters are blocked by ReLU.", 18, h - 16, {
+    color: COLORS.muted
+  });
+}
+
+function drawBackprop(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  const y = targetFor(selectedImage);
+  const back = backwardOne(selectedImage, y);
+  const f = selectedFilter;
+  const inputGrad = back.gx;
+  const filterGrad = back.gW[f];
+  const maxAbs = Math.max(1e-6, ...inputGrad.map(Math.abs), ...filterGrad.map(Math.abs));
+  const size = clamp(Math.min((w - 80) / 2, h - 118), 92, 142);
+  const x1 = w * 0.25 - size / 2;
+  const x2 = w * 0.75 - size / 2;
+  const y0 = 58;
+
+  text(ctx, `Backprop for selected image and filter F${f}`, 16, 24, { color: COLORS.text, size: 14, weight: 650 });
+  text(ctx, `output error p − y = ${back.dlogit.toFixed(4)}`, 16, 44, { color: COLORS.muted });
+
+  drawValueGrid(ctx, x1, y0, size, inputGrad, { maxAbs, borderColor: "#48516b" });
+  text(ctx, "gradient w.r.t. input pixels", x1 + size / 2, y0 + size + 20, { align: "center", color: COLORS.muted });
+
+  drawValueGrid(ctx, x2, y0, size, filterGrad, { maxAbs, borderColor: "#48516b" });
+  text(ctx, `gradient w.r.t. filter F${f}`, x2 + size / 2, y0 + size + 20, { align: "center", color: COLORS.muted });
+
+  const active = back.fwd.z[f] > 0;
+  const boxY = y0 + size + 48;
+  ctx.fillStyle = "#202432";
+  roundRect(ctx, 18, boxY, w - 36, 72, 10, true, false);
+  text(ctx, "Interpretation:", 32, boxY + 23, { color: COLORS.text, size: 13 });
+  text(ctx, "orange means increasing that value would increase the loss; blue means increasing it would decrease the loss.", 32, boxY + 44, {
+    color: COLORS.muted,
+    size: 12
+  });
+  text(ctx, active ? "The selected filter is active, so its weights receive gradient." : "The selected filter is inactive, so ReLU blocks its filter-gradient for this image.", 32, boxY + 62, {
+    color: active ? rgb(COLORS.green) : COLORS.muted,
+    size: 12
+  });
+}
+
+function drawCurve(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  const padL = 48, padR = 24, padT = 28, padB = 42;
+  const x0 = padL, y0 = h - padB, x1 = w - padR, y1 = padT;
+
+  text(ctx, "loss", padL, 18, { color: rgb(COLORS.orange), size: 12 });
+  text(ctx, "accuracy", padL + 48, 18, { color: rgb(COLORS.green), size: 12 });
+
+  ctx.strokeStyle = COLORS.line;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x0, y1, x1 - x0, y0 - y1);
+  line(ctx, x0, y0, x1, y0, COLORS.line, 1);
+  line(ctx, x0, y1, x0, y0, COLORS.line, 1);
+
+  if (history.length < 2) {
+    text(ctx, "Press Train or Step ×200 to add training history.", w / 2, h / 2, {
+      align: "center",
+      color: COLORS.muted,
+      size: 13
+    });
+    return;
+  }
+
+  const minStep = history[0].step;
+  const maxStep = Math.max(minStep + 1, history[history.length - 1].step);
+  const maxLoss = Math.max(0.2, ...history.map(d => d.loss));
+  const minLoss = Math.min(0, ...history.map(d => d.loss));
+
+  function px(step) {
+    return x0 + (step - minStep) / (maxStep - minStep) * (x1 - x0);
+  }
+  function pyLoss(loss) {
+    return y0 - (loss - minLoss) / (maxLoss - minLoss) * (y0 - y1);
+  }
+  function pyAcc(acc) {
+    return y0 - acc * (y0 - y1);
+  }
+
+  ctx.strokeStyle = rgb(COLORS.orange, 0.92);
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  history.forEach((d, i) => {
+    const x = px(d.step), y = pyLoss(d.loss);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  ctx.strokeStyle = rgb(COLORS.green, 0.92);
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  history.forEach((d, i) => {
+    const x = px(d.step), y = pyAcc(d.acc);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  text(ctx, `step ${updateCount}`, x1, h - 14, { align: "right", color: COLORS.muted });
+  text(ctx, `loss ${metrics.loss.toFixed(4)}`, x1, 18, { align: "right", color: rgb(COLORS.orange), size: 12 });
+  text(ctx, `accuracy ${(100 * metrics.acc).toFixed(1)}%`, x1 - 100, 18, { align: "right", color: rgb(COLORS.green), size: 12 });
+}
+
+const viewDrawers = {
+  dataset: drawDataset,
+  rule: drawRule,
+  input: drawInput,
+  filters: drawFilters,
+  compute: drawCompute,
+  responses: drawResponses,
+  flow: drawFlow,
+  backprop: drawBackprop,
+  curve: drawCurve
+};
+
+function renderAll() {
+  if (!model) return;
+  metrics = evaluate();
+  for (const key of Object.keys(canvases)) viewDrawers[key](canvases[key]);
+  if (fullView) viewDrawers[fullView]($("modalCanvas"));
+  updateStats();
+}
+
+function updateStats() {
+  $("filtersVal").textContent = controls.filters.value;
+  $("lrVal").textContent = Number(controls.lr.value).toFixed(3);
+  $("batchVal").textContent = controls.batch.value;
+  $("stepStat").textContent = String(updateCount);
+  $("lossStat").textContent = Number.isFinite(metrics.loss) ? metrics.loss.toFixed(4) : "—";
+  $("accStat").textContent = Number.isFinite(metrics.acc) ? `${(100 * metrics.acc).toFixed(1)}%` : "—";
+
+  const y = targetFor(selectedImage);
+  const p = forward(selectedImage).prob;
+  const pred = p >= 0.5 ? 1 : 0;
+  $("targetStat").textContent = String(y);
+  $("predStat").textContent = `${pred} (${p.toFixed(3)})`;
+}
+
+function resetAll(choosePositive = true) {
+  training = false;
+  controls.trainBtn.textContent = "Train";
+  buildDataset();
+  if (choosePositive) selectRandom(1);
+  initModel();
+  renderAll();
+}
+
+function openFull(key) {
+  fullView = key;
+  $("modalTitle").textContent = viewTitles[key];
+  $("modal").classList.remove("hidden");
+  viewDrawers[key]($("modalCanvas"));
+}
+
+function closeFull() {
+  fullView = null;
+  $("modal").classList.add("hidden");
+}
+
+document.querySelectorAll(".fullBtn").forEach(btn => {
+  btn.addEventListener("click", () => openFull(btn.dataset.view));
+});
+
+$("modalClose").addEventListener("click", closeFull);
+window.addEventListener("keydown", (evt) => {
+  if (evt.key === "Escape") closeFull();
+});
+
+function handleClick(key, evt, canvas) {
+  if (key === "dataset") {
+    const idx = datasetHit(canvas, evt);
+    if (idx !== null) {
+      selectedIndex = idx;
+      selectedImage = allImages[idx].slice();
+      renderAll();
+    }
+  } else if (key === "input") {
+    const i = inputHit(canvas, evt);
+    if (i !== null) {
+      selectedImage[i] = selectedImage[i] ? 0 : 1;
+      selectedIndex = -1;
+      renderAll();
+    }
+  } else if (key === "filters") {
+    const f = filterHit(canvas, evt);
+    if (f !== null) {
+      selectedFilter = f;
+      renderAll();
+    }
+  }
+}
+
+canvases.dataset.addEventListener("click", evt => handleClick("dataset", evt, canvases.dataset));
+canvases.input.addEventListener("click", evt => handleClick("input", evt, canvases.input));
+canvases.filters.addEventListener("click", evt => handleClick("filters", evt, canvases.filters));
+$("modalCanvas").addEventListener("click", evt => {
+  if (fullView) handleClick(fullView, evt, $("modalCanvas"));
+});
+
+controls.trainBtn.addEventListener("click", () => {
+  training = !training;
+  controls.trainBtn.textContent = training ? "Pause" : "Train";
+});
+
+controls.stepBtn.addEventListener("click", () => {
+  training = false;
+  controls.trainBtn.textContent = "Train";
+  trainStep(200);
+  recordHistory();
+  renderAll();
+});
+
+controls.resetBtn.addEventListener("click", () => {
+  initModel();
+  renderAll();
+});
+
+controls.rule.addEventListener("change", () => resetAll(false));
+controls.filters.addEventListener("input", updateStats);
+controls.filters.addEventListener("change", () => {
+  initModel();
+  renderAll();
+});
+controls.lr.addEventListener("input", updateStats);
+controls.batch.addEventListener("input", updateStats);
+
+controls.randomBtn.addEventListener("click", () => { selectRandom(null); renderAll(); });
+controls.positiveBtn.addEventListener("click", () => { selectRandom(1); renderAll(); });
+controls.negativeBtn.addEventListener("click", () => { selectRandom(0); renderAll(); });
+controls.clearBtn.addEventListener("click", () => {
+  selectedIndex = -1;
+  selectedImage = Array(9).fill(0);
+  renderAll();
+});
+
+window.addEventListener("resize", () => renderAll());
+
+function loop() {
+  if (training) {
+    trainStep(12);
+    renderAll();
+  }
+  requestAnimationFrame(loop);
+}
+
+resetAll(true);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
