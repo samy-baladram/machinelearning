@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Interactive CNN on 5×5 Binary Images</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #171a23;
+    --panel2: #202432;
+    --line: #353b4f;
+    --text: #e7eaf3;
+    --muted: #aab0c0;
+    --blue: #4b8fe8;
+    --orange: #f59b3d;
+    --green: #8bd17c;
+    --warn: #f1cf65;
+    --blackpixel: #03050a;
+    --whitepixel: #edf0f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 18px 22px 12px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #151824, #0f1117);
+  }
+  header h1 {
+    margin: 0 0 6px;
+    font-size: 22px;
+    font-weight: 700;
+  }
+  header p {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.45;
+    max-width: 1240px;
+    font-size: 14px;
+  }
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 10px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    background: #121520;
+    position: sticky;
+    top: 0;
+    z-index: 4;
+  }
+  .control {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px;
+    min-height: 62px;
+  }
+  .control label {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 5px;
+  }
+  .span2 { grid-column: span 2; }
+  .span3 { grid-column: span 3; }
+  .span4 { grid-column: span 4; }
+  select, input, button { font: inherit; }
+  select, input[type="number"] {
+    width: 100%;
+    background: var(--panel2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px;
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: #8792aa;
+  }
+  .buttonRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: end;
+  }
+  button {
+    border: 1px solid var(--line);
+    background: var(--panel2);
+    color: var(--text);
+    padding: 9px 12px;
+    border-radius: 9px;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.12); }
+  button.primary {
+    background: #2a344a;
+    border-color: #465271;
+  }
+  button.danger {
+    background: #39212a;
+    border-color: #704052;
+  }
+  button.smallBtn {
+    padding: 7px 9px;
+    font-size: 12px;
+  }
+  .statbar {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    padding: 12px 18px 0;
+  }
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .stat .label { color: var(--muted); font-size: 12px; }
+  .stat .value {
+    font-size: 18px;
+    margin-top: 3px;
+    font-variant-numeric: tabular-nums;
+  }
+  main { padding: 14px 18px 22px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(280px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    min-width: 0;
+  }
+  .cardHeader {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: start;
+    padding: 11px 12px 9px;
+  }
+  .card h2 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 650;
+  }
+  .card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 320px;
+    background: #10131d;
+    border-top: 1px solid var(--line);
+  }
+  #networkCanvas { height: 430px; }
+  #curveCanvas { height: 300px; }
+  .wide { grid-column: span 3; }
+  .explain {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    margin-top: 14px;
+    padding: 13px 14px;
+    color: var(--muted);
+    line-height: 1.48;
+    font-size: 13px;
+  }
+  .explain strong { color: var(--text); font-weight: 650; }
+  code {
+    color: #d7dbea;
+    background: #202432;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 1px 4px;
+  }
+  .modal {
+    position: fixed;
+    inset: 0;
+    background: #0f1117;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+  }
+  .modal.hidden { display: none; }
+  .modalTop {
+    height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--line);
+    background: #121520;
+  }
+  .modalTop strong { font-size: 15px; }
+  #modalCanvas {
+    flex: 1;
+    width: 100vw;
+    height: calc(100vh - 54px);
+    border: 0;
+  }
+  @media (max-width: 1120px) {
+    .controls { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .span2, .span3, .span4 { grid-column: span 3; }
+    .grid { grid-template-columns: 1fr; }
+    .wide { grid-column: span 1; }
+    .statbar { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Interactive CNN classifier for 5×5 binary images</h1>
+  <p>
+    The input is a 5×5 binary image. A pixel value of 1 means black. The target is 1 when the image contains a complete line of five black pixels: one full row, one full column, or one of the two full diagonals. The visualization is designed to make the pipeline explicit: convolution filters create feature maps, feature maps are ReLUed and flattened into a vector, then a dense projection maps that vector to a binary prediction.
+  </p>
+</header>
+
+<section class="controls">
+  <div class="control span2">
+    <label for="filters">Number of filters: <span id="filtersVal">8</span></label>
+    <input id="filters" type="range" min="2" max="32" step="1" value="8" />
+  </div>
+  <div class="control span2">
+    <label for="kernel">Kernel size</label>
+    <select id="kernel">
+      <option value="3" selected>3×3 filters → 3×3 feature maps</option>
+      <option value="5">5×5 filters → 1×1 feature maps</option>
+    </select>
+  </div>
+  <div class="control span2">
+    <label for="hidden">Dense hidden width: <span id="hiddenVal">8</span></label>
+    <input id="hidden" type="range" min="0" max="64" step="1" value="8" />
+  </div>
+  <div class="control span2">
+    <label for="datasetSize">Train set size: <span id="datasetVal">1024</span></label>
+    <input id="datasetSize" type="range" min="256" max="8192" step="256" value="1024" />
+  </div>
+  <div class="control span2">
+    <label for="lr">Learning rate: <span id="lrVal">0.006</span></label>
+    <input id="lr" type="range" min="0.001" max="0.050" step="0.001" value="0.006" />
+  </div>
+  <div class="control span2">
+    <label for="batch">Batch size: <span id="batchVal">32</span></label>
+    <input id="batch" type="range" min="8" max="256" step="8" value="32" />
+  </div>
+  <div class="control span2">
+    <label for="speed">Train speed: <span id="speedVal">1</span> update/frame</label>
+    <input id="speed" type="range" min="1" max="20" step="1" value="1" />
+  </div>
+  <div class="control span3">
+    <label>Training</label>
+    <div class="buttonRow">
+      <button id="trainBtn" class="primary">Train</button>
+      <button id="stepBtn">Step ×25</button>
+      <button id="resetWeightsBtn" class="danger">Reset weights</button>
+      <button id="resetDataBtn">New data</button>
+    </div>
+  </div>
+  <div class="control span4">
+    <label>Selected image</label>
+    <div class="buttonRow">
+      <button id="randomBtn" class="smallBtn">Random</button>
+      <button id="positiveBtn" class="smallBtn">Positive example</button>
+      <button id="negativeBtn" class="smallBtn">Negative example</button>
+      <button id="clearBtn" class="smallBtn">Clear</button>
+    </div>
+  </div>
+</section>
+
+<section class="statbar">
+  <div class="stat"><div class="label">Optimizer updates</div><div id="stepStat" class="value">0</div></div>
+  <div class="stat"><div class="label">Train loss</div><div id="lossStat" class="value">—</div></div>
+  <div class="stat"><div class="label">Train accuracy</div><div id="trainAccStat" class="value">—</div></div>
+  <div class="stat"><div class="label">Test accuracy</div><div id="testAccStat" class="value">—</div></div>
+  <div class="stat"><div class="label">Selected target</div><div id="targetStat" class="value">—</div></div>
+  <div class="stat"><div class="label">Selected prediction</div><div id="predStat" class="value">—</div></div>
+</section>
+
+<main>
+  <div class="grid">
+    <div class="card">
+      <div class="cardHeader">
+        <div>
+          <h2>1. Training examples</h2>
+          <p>Orange border = target 1. Blue border = target 0. Click a thumbnail to inspect it.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="dataset">Full page</button>
+      </div>
+      <canvas id="datasetCanvas"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="cardHeader">
+        <div>
+          <h2>2. Target rule</h2>
+          <p>The label is 1 if any one of these twelve 5-pixel templates is fully black.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="rule">Full page</button>
+      </div>
+      <canvas id="ruleCanvas"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="cardHeader">
+        <div>
+          <h2>3. Selected 5×5 image</h2>
+          <p>Click cells to create a custom input. Complete target lines are highlighted.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="input">Full page</button>
+      </div>
+      <canvas id="inputCanvas"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="cardHeader">
+        <div>
+          <h2>4. Learned filters</h2>
+          <p>Each kernel is a local template. Positive weights are orange, negative weights are blue.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="filters">Full page</button>
+      </div>
+      <canvas id="filtersCanvas"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="cardHeader">
+        <div>
+          <h2>5. Feature maps</h2>
+          <p>Each filter slides across the 5×5 image and creates one activation map after ReLU.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="maps">Full page</button>
+      </div>
+      <canvas id="mapsCanvas"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="cardHeader">
+        <div>
+          <h2>6. Flattened vector → projection</h2>
+          <p>The ReLU feature maps are flattened into a vector. A dense layer projects that vector toward the final answer.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="projection">Full page</button>
+      </div>
+      <canvas id="projectionCanvas"></canvas>
+    </div>
+
+    <div class="card wide">
+      <div class="cardHeader">
+        <div>
+          <h2>7. Full CNN network representation</h2>
+          <p>This view shows the exact shape transition: 5×5 input → filters → feature maps → flattened vector → dense projection → sigmoid probability.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="network">Full page</button>
+      </div>
+      <canvas id="networkCanvas"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="cardHeader">
+        <div>
+          <h2>8. Backpropagation</h2>
+          <p>Gradients show how the selected image and selected filter would change to reduce the current loss.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="backprop">Full page</button>
+      </div>
+      <canvas id="backpropCanvas"></canvas>
+    </div>
+
+    <div class="card wide">
+      <div class="cardHeader">
+        <div>
+          <h2>9. Training curve</h2>
+          <p>Defaults are intentionally slower than the 3×3 version. Increase learning rate, filters, width, or train speed to accelerate convergence.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="curve">Full page</button>
+      </div>
+      <canvas id="curveCanvas"></canvas>
+    </div>
+  </div>
+
+  <div class="explain">
+    <strong>Architecture:</strong> 5×5 input → <code>F</code> valid convolution filters of size <code>K×K</code> → ReLU feature maps of size <code>(6−K)×(6−K)</code> → flatten into a vector of length <code>F(6−K)²</code> → optional dense hidden layer → sigmoid output. The target is a full row, full column, or full diagonal of five black pixels. The default setting uses smaller learning rate and fewer updates per frame so convergence is visible rather than immediate.
+  </div>
+</main>
+
+<div id="modal" class="modal hidden">
+  <div class="modalTop">
+    <strong id="modalTitle">Full page chart</strong>
+    <button id="modalClose">Close</button>
+  </div>
+  <canvas id="modalCanvas"></canvas>
+</div>
+
+<script>
+"use strict";
+
+const C = {
+  bg: "#10131d",
+  panel: "#171a23",
+  line: "#353b4f",
+  text: "#e7eaf3",
+  muted: "#aab0c0",
+  blue: [75, 143, 232],
+  orange: [245, 155, 61],
+  green: [139, 209, 124],
+  warn: [241, 207, 101],
+  whitePixel: "#edf0f6",
+  blackPixel: "#03050a"
+};
+
+const $ = id => document.getElementById(id);
+
+const controls = {
+  filters: $("filters"),
+  kernel: $("kernel"),
+  hidden: $("hidden"),
+  datasetSize: $("datasetSize"),
+  lr: $("lr"),
+  batch: $("batch"),
+  speed: $("speed"),
+  trainBtn: $("trainBtn"),
+  stepBtn: $("stepBtn"),
+  resetWeightsBtn: $("resetWeightsBtn"),
+  resetDataBtn: $("resetDataBtn"),
+  randomBtn: $("randomBtn"),
+  positiveBtn: $("positiveBtn"),
+  negativeBtn: $("negativeBtn"),
+  clearBtn: $("clearBtn")
+};
+
+const canvases = {
+  dataset: $("datasetCanvas"),
+  rule: $("ruleCanvas"),
+  input: $("inputCanvas"),
+  filters: $("filtersCanvas"),
+  maps: $("mapsCanvas"),
+  projection: $("projectionCanvas"),
+  network: $("networkCanvas"),
+  backprop: $("backpropCanvas"),
+  curve: $("curveCanvas")
+};
+
+const viewTitles = {
+  dataset: "Training examples",
+  rule: "Target rule",
+  input: "Selected 5×5 image",
+  filters: "Learned filters",
+  maps: "Feature maps",
+  projection: "Flattened vector → projection",
+  network: "Full CNN network representation",
+  backprop: "Backpropagation",
+  curve: "Training curve"
+};
+
+let rng = mulberry32(10);
+let trainX = [];
+let trainY = [];
+let testX = [];
+let testY = [];
+let selectedImage = Array(25).fill(0);
+let selectedIndex = -1;
+let selectedFilter = 0;
+let model = null;
+let training = false;
+let updateCount = 0;
+let metrics = { loss: NaN, trainAcc: NaN, testAcc: NaN };
+let history = [];
+let fullView = null;
+let lastDataSeed = 444;
+
+function mulberry32(seed) {
+  return function() {
+    let t = seed += 0x6D2B79F5;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function randn() {
+  let u = 0, v = 0;
+  while (u === 0) u = rng();
+  while (v === 0) v = rng();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+function lerp(a,b,t){ return a + (b-a)*t; }
+function rgb(c, a=1){ return `rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},${a})`; }
+function mix(c0,c1,t,a=1){ t=clamp(t,0,1); return rgb([lerp(c0[0],c1[0],t),lerp(c0[1],c1[1],t),lerp(c0[2],c1[2],t)],a); }
+function labelColor(y,a=1){ return y ? rgb(C.orange,a) : rgb(C.blue,a); }
+function signedColor(v, maxAbs, a=1){
+  const base = [34, 39, 55];
+  const t = maxAbs <= 1e-9 ? 0 : clamp(Math.abs(v) / maxAbs, 0, 1);
+  return v >= 0 ? mix(base, C.orange, t, a) : mix(base, C.blue, t, a);
+}
+function sigmoid(x) {
+  if (x >= 0) {
+    const z = Math.exp(-x);
+    return 1 / (1 + z);
+  }
+  const z = Math.exp(x);
+  return z / (1 + z);
+}
+
+function allTargetLines() {
+  const lines = [];
+  for (let r = 0; r < 5; r++) lines.push({ name: `row ${r+1}`, cells: [0,1,2,3,4].map(c => r*5+c) });
+  for (let c = 0; c < 5; c++) lines.push({ name: `column ${c+1}`, cells: [0,1,2,3,4].map(r => r*5+c) });
+  lines.push({ name: "main diagonal", cells: [0,6,12,18,24] });
+  lines.push({ name: "anti-diagonal", cells: [4,8,12,16,20] });
+  return lines;
+}
+
+function targetFor(img) {
+  return allTargetLines().some(line => line.cells.every(i => img[i] === 1)) ? 1 : 0;
+}
+
+function matchingLines(img) {
+  return allTargetLines().filter(line => line.cells.every(i => img[i] === 1));
+}
+
+function randomImage(p=0.5) {
+  return Array.from({ length: 25 }, () => rng() < p ? 1 : 0);
+}
+
+function generateBalancedSet(n, seed) {
+  rng = mulberry32(seed);
+  const X = [], Y = [];
+  const half = Math.floor(n / 2);
+  let pos = 0, neg = 0;
+  let guard = 0;
+  while ((pos < half || neg < n - half) && guard < n * 2000) {
+    guard++;
+    const img = randomImage(0.5);
+    const y = targetFor(img);
+    if (y && pos < half) { X.push(img); Y.push(1); pos++; }
+    else if (!y && neg < n - half) { X.push(img); Y.push(0); neg++; }
+  }
+  for (let i = X.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [X[i], X[j]] = [X[j], X[i]];
+    [Y[i], Y[j]] = [Y[j], Y[i]];
+  }
+  return { X, Y };
+}
+
+function buildData(newSeed=false) {
+  if (newSeed) lastDataSeed = Math.floor(1000 + Math.random() * 1000000);
+  const n = parseInt(controls.datasetSize.value, 10);
+  const train = generateBalancedSet(n, lastDataSeed);
+  const test = generateBalancedSet(1536, lastDataSeed + 77);
+  trainX = train.X;
+  trainY = train.Y;
+  testX = test.X;
+  testY = test.Y;
+  selectRandom(1);
+}
+
+function selectRandom(label=null) {
+  const candidates = [];
+  for (let i = 0; i < trainX.length; i++) {
+    if (label === null || trainY[i] === label) candidates.push(i);
+  }
+  if (!candidates.length) return;
+  const idx = candidates[Math.floor(rng() * candidates.length)];
+  selectedIndex = idx;
+  selectedImage = trainX[idx].slice();
+}
+
+function dims() {
+  const F = parseInt(controls.filters.value, 10);
+  const K = parseInt(controls.kernel.value, 10);
+  const S = 5 - K + 1;
+  const flat = F * S * S;
+  const H = parseInt(controls.hidden.value, 10);
+  return { F, K, S, flat, H };
+}
+
+function initModel() {
+  const d = dims();
+  rng = mulberry32(9000 + d.F * 31 + d.K * 131 + d.H * 7);
+  const convScale = Math.sqrt(2 / (d.K * d.K));
+  const W = [];
+  for (let f = 0; f < d.F; f++) {
+    const arr = [];
+    for (let i = 0; i < d.K * d.K; i++) arr.push(convScale * randn());
+    W.push(arr);
+  }
+  const b = Array(d.F).fill(0.01);
+
+  const posRate = trainY.reduce((a,b)=>a+b,0) / Math.max(1, trainY.length);
+  const initialBias = Math.log(posRate / Math.max(1e-9, 1 - posRate));
+
+  let Wh = [], bh = [], V = [];
+  if (d.H > 0) {
+    const hScale = Math.sqrt(2 / Math.max(1, d.flat));
+    Wh = Array.from({ length: d.flat }, () => Array.from({ length: d.H }, () => hScale * randn()));
+    bh = Array(d.H).fill(0.01);
+    V = Array.from({ length: d.H }, () => Math.sqrt(1 / Math.max(1, d.H)) * randn());
+  } else {
+    V = Array.from({ length: d.flat }, () => Math.sqrt(1 / Math.max(1, d.flat)) * randn());
+  }
+
+  model = {
+    ...d, W, b, Wh, bh, V, c: initialBias, t: 0,
+    mW: W.map(row => row.map(() => 0)), vW: W.map(row => row.map(() => 0)),
+    mb: b.map(() => 0), vb: b.map(() => 0),
+    mWh: Wh.map(row => row.map(() => 0)), vWh: Wh.map(row => row.map(() => 0)),
+    mbh: bh.map(() => 0), vbh: bh.map(() => 0),
+    mV: V.map(() => 0), vV: V.map(() => 0),
+    mc: 0, vc: 0
+  };
+
+  selectedFilter = Math.min(selectedFilter, d.F - 1);
+  updateCount = 0;
+  history = [];
+  recordHistory();
+}
+
+function convForward(img) {
+  const z = [];
+  const a = [];
+  const flat = [];
+  for (let f = 0; f < model.F; f++) {
+    const zMap = [];
+    const aMap = [];
+    for (let r = 0; r < model.S; r++) {
+      for (let c = 0; c < model.S; c++) {
+        let s = model.b[f];
+        let kk = 0;
+        for (let kr = 0; kr < model.K; kr++) {
+          for (let kc = 0; kc < model.K; kc++) {
+            const ii = (r + kr) * 5 + (c + kc);
+            s += model.W[f][kk] * img[ii];
+            kk++;
+          }
+        }
+        zMap.push(s);
+        const relu = Math.max(0, s);
+        aMap.push(relu);
+        flat.push(relu);
+      }
+    }
+    z.push(zMap);
+    a.push(aMap);
+  }
+  return { z, a, flat };
+}
+
+function forward(img) {
+  const conv = convForward(img);
+  let hZ = [], hA = [];
+  let logit = model.c;
+  if (model.H > 0) {
+    hZ = Array(model.H).fill(0);
+    hA = Array(model.H).fill(0);
+    for (let j = 0; j < model.H; j++) {
+      let s = model.bh[j];
+      for (let i = 0; i < model.flat; i++) s += conv.flat[i] * model.Wh[i][j];
+      hZ[j] = s;
+      hA[j] = Math.max(0, s);
+      logit += hA[j] * model.V[j];
+    }
+  } else {
+    for (let i = 0; i < model.flat; i++) logit += conv.flat[i] * model.V[i];
+  }
+  const prob = sigmoid(logit);
+  return { ...conv, hZ, hA, logit, prob };
+}
+
+function backwardOne(img, y) {
+  const fwd = forward(img);
+  const dlogit = fwd.prob - y;
+
+  const gW = Array.from({ length: model.F }, () => Array(model.K * model.K).fill(0));
+  const gb = Array(model.F).fill(0);
+  const gx = Array(25).fill(0);
+  const dFlat = Array(model.flat).fill(0);
+  let gWh = model.Wh.map(row => row.map(() => 0));
+  let gbh = model.bh.map(() => 0);
+  let gV = model.V.map(() => 0);
+
+  if (model.H > 0) {
+    for (let j = 0; j < model.H; j++) {
+      gV[j] = fwd.hA[j] * dlogit;
+      const dh = model.V[j] * dlogit;
+      const dzH = fwd.hZ[j] > 0 ? dh : 0;
+      gbh[j] = dzH;
+      for (let i = 0; i < model.flat; i++) {
+        gWh[i][j] = fwd.flat[i] * dzH;
+        dFlat[i] += model.Wh[i][j] * dzH;
+      }
+    }
+  } else {
+    for (let i = 0; i < model.flat; i++) {
+      gV[i] = fwd.flat[i] * dlogit;
+      dFlat[i] = model.V[i] * dlogit;
+    }
+  }
+
+  let idx = 0;
+  const dZMaps = [];
+  for (let f = 0; f < model.F; f++) {
+    const dzMap = Array(model.S * model.S).fill(0);
+    for (let r = 0; r < model.S; r++) {
+      for (let c = 0; c < model.S; c++) {
+        const pos = r * model.S + c;
+        const dz = fwd.z[f][pos] > 0 ? dFlat[idx] : 0;
+        dzMap[pos] = dz;
+        gb[f] += dz;
+        let kk = 0;
+        for (let kr = 0; kr < model.K; kr++) {
+          for (let kc = 0; kc < model.K; kc++) {
+            const ii = (r + kr) * 5 + (c + kc);
+            gW[f][kk] += dz * img[ii];
+            gx[ii] += model.W[f][kk] * dz;
+            kk++;
+          }
+        }
+        idx++;
+      }
+    }
+    dZMaps.push(dzMap);
+  }
+
+  return { fwd, dlogit, dFlat, dZMaps, gW, gb, gx, gWh, gbh, gV, gc: dlogit };
+}
+
+function zeroGrads() {
+  return {
+    W: Array.from({ length: model.F }, () => Array(model.K * model.K).fill(0)),
+    b: Array(model.F).fill(0),
+    Wh: model.Wh.map(row => row.map(() => 0)),
+    bh: model.bh.map(() => 0),
+    V: model.V.map(() => 0),
+    c: 0
+  };
+}
+
+function trainStep(n) {
+  const B = parseInt(controls.batch.value, 10);
+  const lr = parseFloat(controls.lr.value);
+  for (let step = 0; step < n; step++) {
+    const g = zeroGrads();
+    for (let bi = 0; bi < B; bi++) {
+      const idx = Math.floor(rng() * trainX.length);
+      const back = backwardOne(trainX[idx], trainY[idx]);
+      for (let f = 0; f < model.F; f++) {
+        for (let k = 0; k < model.K * model.K; k++) g.W[f][k] += back.gW[f][k] / B;
+        g.b[f] += back.gb[f] / B;
+      }
+      if (model.H > 0) {
+        for (let i = 0; i < model.flat; i++) for (let j = 0; j < model.H; j++) g.Wh[i][j] += back.gWh[i][j] / B;
+        for (let j = 0; j < model.H; j++) g.bh[j] += back.gbh[j] / B;
+      }
+      for (let i = 0; i < model.V.length; i++) g.V[i] += back.gV[i] / B;
+      g.c += back.gc / B;
+    }
+    applyAdam(g, lr);
+    updateCount++;
+    if (updateCount % 5 === 0) recordHistory();
+  }
+}
+
+function applyAdam(g, lr) {
+  const beta1 = 0.9, beta2 = 0.999, eps = 1e-8;
+  model.t++;
+  const t = model.t;
+  function updateScalar(obj, pKey, mKey, vKey, grad) {
+    obj[mKey] = beta1 * obj[mKey] + (1 - beta1) * grad;
+    obj[vKey] = beta2 * obj[vKey] + (1 - beta2) * grad * grad;
+    const mh = obj[mKey] / (1 - Math.pow(beta1, t));
+    const vh = obj[vKey] / (1 - Math.pow(beta2, t));
+    obj[pKey] -= lr * mh / (Math.sqrt(vh) + eps);
+  }
+
+  for (let f = 0; f < model.F; f++) {
+    for (let k = 0; k < model.K * model.K; k++) {
+      model.mW[f][k] = beta1 * model.mW[f][k] + (1 - beta1) * g.W[f][k];
+      model.vW[f][k] = beta2 * model.vW[f][k] + (1 - beta2) * g.W[f][k] * g.W[f][k];
+      const mh = model.mW[f][k] / (1 - Math.pow(beta1, t));
+      const vh = model.vW[f][k] / (1 - Math.pow(beta2, t));
+      model.W[f][k] -= lr * mh / (Math.sqrt(vh) + eps);
+    }
+    model.mb[f] = beta1 * model.mb[f] + (1 - beta1) * g.b[f];
+    model.vb[f] = beta2 * model.vb[f] + (1 - beta2) * g.b[f] * g.b[f];
+    model.b[f] -= lr * (model.mb[f] / (1 - Math.pow(beta1, t))) / (Math.sqrt(model.vb[f] / (1 - Math.pow(beta2, t))) + eps);
+  }
+
+  if (model.H > 0) {
+    for (let i = 0; i < model.flat; i++) {
+      for (let j = 0; j < model.H; j++) {
+        model.mWh[i][j] = beta1 * model.mWh[i][j] + (1 - beta1) * g.Wh[i][j];
+        model.vWh[i][j] = beta2 * model.vWh[i][j] + (1 - beta2) * g.Wh[i][j] * g.Wh[i][j];
+        const mh = model.mWh[i][j] / (1 - Math.pow(beta1, t));
+        const vh = model.vWh[i][j] / (1 - Math.pow(beta2, t));
+        model.Wh[i][j] -= lr * mh / (Math.sqrt(vh) + eps);
+      }
+    }
+    for (let j = 0; j < model.H; j++) {
+      model.mbh[j] = beta1 * model.mbh[j] + (1 - beta1) * g.bh[j];
+      model.vbh[j] = beta2 * model.vbh[j] + (1 - beta2) * g.bh[j] * g.bh[j];
+      model.bh[j] -= lr * (model.mbh[j] / (1 - Math.pow(beta1, t))) / (Math.sqrt(model.vbh[j] / (1 - Math.pow(beta2, t))) + eps);
+    }
+  }
+
+  for (let i = 0; i < model.V.length; i++) {
+    model.mV[i] = beta1 * model.mV[i] + (1 - beta1) * g.V[i];
+    model.vV[i] = beta2 * model.vV[i] + (1 - beta2) * g.V[i] * g.V[i];
+    const mh = model.mV[i] / (1 - Math.pow(beta1, t));
+    const vh = model.vV[i] / (1 - Math.pow(beta2, t));
+    model.V[i] -= lr * mh / (Math.sqrt(vh) + eps);
+  }
+
+  updateScalar(model, "c", "mc", "vc", g.c);
+}
+
+function evaluateSet(X, Y, maxN=null) {
+  const n = maxN ? Math.min(maxN, X.length) : X.length;
+  let loss = 0, correct = 0;
+  for (let i = 0; i < n; i++) {
+    const p0 = forward(X[i]).prob;
+    const p = clamp(p0, 1e-9, 1 - 1e-9);
+    const y = Y[i];
+    loss += -(y * Math.log(p) + (1-y) * Math.log(1-p));
+    if ((p0 >= 0.5 ? 1 : 0) === y) correct++;
+  }
+  return { loss: loss / n, acc: correct / n };
+}
+
+function recordHistory() {
+  if (!model || !trainX.length) return;
+  const train = evaluateSet(trainX, trainY, Math.min(1024, trainX.length));
+  const test = evaluateSet(testX, testY, Math.min(1024, testX.length));
+  metrics = { loss: train.loss, trainAcc: train.acc, testAcc: test.acc };
+  history.push({ step: updateCount, loss: metrics.loss, trainAcc: metrics.trainAcc, testAcc: metrics.testAcc });
+  if (history.length > 500) history.shift();
+}
+
+function setupHiDPI(canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.max(50, Math.round(rect.width * dpr));
+  const H = Math.max(50, Math.round(rect.height * dpr));
+  if (canvas.width !== W || canvas.height !== H) {
+    canvas.width = W;
+    canvas.height = H;
+  }
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width, h: rect.height };
+}
+function clear(ctx,w,h){ ctx.fillStyle = C.bg; ctx.fillRect(0,0,w,h); }
+function text(ctx, s, x, y, opts={}) {
+  ctx.fillStyle = opts.color || C.muted;
+  ctx.font = `${opts.weight || 400} ${opts.size || 12}px Inter, system-ui, sans-serif`;
+  ctx.textAlign = opts.align || "left";
+  ctx.textBaseline = opts.baseline || "alphabetic";
+  ctx.fillText(s, x, y);
+}
+function line(ctx,x1,y1,x2,y2,color=C.line,width=1) {
+  ctx.strokeStyle = color; ctx.lineWidth = width;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+}
+function arrow(ctx,x1,y1,x2,y2,color=C.muted,width=1.4) {
+  line(ctx,x1,y1,x2,y2,color,width);
+  const a = Math.atan2(y2-y1, x2-x1);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2 - 8*Math.cos(a-0.45), y2 - 8*Math.sin(a-0.45));
+  ctx.lineTo(x2 - 8*Math.cos(a+0.45), y2 - 8*Math.sin(a+0.45));
+  ctx.closePath(); ctx.fill();
+}
+function roundRect(ctx,x,y,w,h,r,fill=true,stroke=false){
+  r = Math.min(r, w/2, h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  if(fill) ctx.fill();
+  if(stroke) ctx.stroke();
+}
+
+function drawBinaryGrid(ctx, x, y, size, img, opts={}) {
+  const cell = size / 5;
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      const i = r * 5 + c;
+      ctx.fillStyle = img[i] ? C.blackPixel : C.whitePixel;
+      ctx.fillRect(x + c * cell, y + r * cell, cell, cell);
+      ctx.strokeStyle = "#394154";
+      ctx.lineWidth = Math.max(0.7, size / 230);
+      ctx.strokeRect(x + c * cell, y + r * cell, cell, cell);
+    }
+  }
+  if (opts.highlight) {
+    const matches = matchingLines(img);
+    if (matches.length) {
+      ctx.strokeStyle = rgb(C.orange, 0.95);
+      ctx.lineWidth = Math.max(2, size / 45);
+      for (const m of matches) {
+        for (const i of m.cells) {
+          const r = Math.floor(i / 5), c = i % 5;
+          ctx.strokeRect(x + c * cell + 2, y + r * cell + 2, cell - 4, cell - 4);
+        }
+      }
+    }
+  }
+  if (opts.borderColor) {
+    ctx.strokeStyle = opts.borderColor;
+    ctx.lineWidth = opts.borderWidth || 2;
+    ctx.strokeRect(x, y, size, size);
+  }
+}
+
+function drawValueGrid(ctx, x, y, size, values, n, opts={}) {
+  const maxAbs = opts.maxAbs || Math.max(1e-6, ...values.map(v => Math.abs(v)));
+  const cell = size / n;
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      const i = r * n + c;
+      ctx.fillStyle = signedColor(values[i] || 0, maxAbs, 0.96);
+      ctx.fillRect(x + c * cell, y + r * cell, cell, cell);
+      ctx.strokeStyle = "#394154";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + c * cell, y + r * cell, cell, cell);
+      if (cell >= 28) {
+        const v = values[i] || 0;
+        text(ctx, Math.abs(v) >= 10 ? v.toFixed(0) : v.toFixed(2), x + c * cell + cell/2, y + r * cell + cell/2 + 4, {
+          color: "#f4f6fb", align: "center", size: cell >= 40 ? 11 : 9
+        });
+      }
+    }
+  }
+  if (opts.borderColor) {
+    ctx.strokeStyle = opts.borderColor;
+    ctx.lineWidth = opts.borderWidth || 2;
+    ctx.strokeRect(x, y, size, size);
+  }
+}
+
+function drawActivationGrid(ctx, x, y, size, values, n, opts={}) {
+  const maxVal = opts.maxVal || Math.max(1e-6, ...values.map(v => Math.abs(v)));
+  const cell = size / n;
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      const i = r * n + c;
+      const v = values[i] || 0;
+      ctx.fillStyle = mix([32,36,50], C.green, clamp(v / maxVal, 0, 1), 0.96);
+      ctx.fillRect(x + c * cell, y + r * cell, cell, cell);
+      ctx.strokeStyle = "#394154";
+      ctx.strokeRect(x + c * cell, y + r * cell, cell, cell);
+      if (cell >= 30) text(ctx, v.toFixed(2), x + c*cell + cell/2, y + r*cell + cell/2 + 4, { align:"center", color:C.text, size:10 });
+    }
+  }
+  if (opts.borderColor) {
+    ctx.strokeStyle = opts.borderColor;
+    ctx.lineWidth = opts.borderWidth || 2;
+    ctx.strokeRect(x, y, size, size);
+  }
+}
+
+function drawDataset(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx,w,h);
+  text(ctx, "Balanced sampled training set. The total 5×5 space has 2²⁵ possible images, so this view shows a sample.", 14, 20, { color: C.muted });
+
+  const margin = 14;
+  const top = 36;
+  const thumb = clamp(Math.floor(Math.min((w - 2 * margin) / 14, (h - top - 20) / 7)), 19, 34);
+  const gap = 5;
+  const cols = Math.max(1, Math.floor((w - 2*margin) / (thumb + gap)));
+  const rows = Math.max(1, Math.floor((h - top - 20) / (thumb + gap)));
+  const count = Math.min(trainX.length, cols * rows);
+
+  for (let n = 0; n < count; n++) {
+    const col = n % cols, row = Math.floor(n / cols);
+    const x = margin + col * (thumb + gap);
+    const y = top + row * (thumb + gap);
+    drawBinaryGrid(ctx, x, y, thumb, trainX[n], {
+      borderColor: labelColor(trainY[n], n === selectedIndex ? 1 : 0.65),
+      borderWidth: n === selectedIndex ? 3 : 1.3
+    });
+  }
+  text(ctx, `Showing ${count} of ${trainX.length} training examples`, w - margin, h - 12, { color: C.muted, align: "right" });
+}
+
+function datasetHit(canvas, evt) {
+  const rect = canvas.getBoundingClientRect();
+  const margin = 14, top = 36;
+  const thumb = clamp(Math.floor(Math.min((rect.width - 2 * margin) / 14, (rect.height - top - 20) / 7)), 19, 34);
+  const gap = 5;
+  const cols = Math.max(1, Math.floor((rect.width - 2*margin) / (thumb + gap)));
+  const mx = evt.clientX - rect.left, my = evt.clientY - rect.top;
+  const col = Math.floor((mx - margin) / (thumb + gap));
+  const row = Math.floor((my - top) / (thumb + gap));
+  if (col < 0 || row < 0) return null;
+  const localX = (mx - margin) - col * (thumb + gap);
+  const localY = (my - top) - row * (thumb + gap);
+  if (localX < 0 || localX > thumb || localY < 0 || localY > thumb) return null;
+  const idx = row * cols + col;
+  return idx >= 0 && idx < trainX.length ? idx : null;
+}
+
+function drawRule(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx,w,h);
+  const lines = allTargetLines();
+  text(ctx, "The target is 1 when one complete 5-pixel line is black. Extra black pixels are allowed.", 16, 22, { color: C.text, size: 13 });
+
+  const cols = w > 760 ? 6 : (w > 520 ? 4 : 3);
+  const size = clamp(Math.min((w - 42) / cols, 72), 44, 72);
+  const gapX = (w - cols * size) / (cols + 1);
+  const rows = Math.ceil(lines.length / cols);
+  const startY = Math.max(44, (h - rows * (size + 26)) / 2 + 8);
+
+  for (let k = 0; k < lines.length; k++) {
+    const col = k % cols, row = Math.floor(k / cols);
+    const x = gapX + col * (size + gapX);
+    const y = startY + row * (size + 26);
+    const img = Array(25).fill(0);
+    for (const i of lines[k].cells) img[i] = 1;
+    drawBinaryGrid(ctx, x, y, size, img, { borderColor: rgb(C.orange, 0.95), borderWidth: 2 });
+    text(ctx, lines[k].name, x + size / 2, y + size + 17, { align: "center", color: C.muted, size: 11 });
+  }
+}
+
+function drawInput(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx,w,h);
+  const y = targetFor(selectedImage);
+  const fwd = forward(selectedImage);
+  const pred = fwd.prob >= 0.5 ? 1 : 0;
+  const size = clamp(Math.min(w * 0.52, h - 112), 150, 220);
+  const x0 = (w - size) / 2, y0 = 38;
+  text(ctx, "Click cells to toggle pixels. Black = 1, white = 0.", 16, 22, { color: C.muted });
+  drawBinaryGrid(ctx, x0, y0, size, selectedImage, { highlight: true, borderColor: labelColor(y, 0.95), borderWidth: 3 });
+
+  const barX = 30, barY = y0 + size + 36, barW = w - 60;
+  ctx.fillStyle = "#232838";
+  roundRect(ctx, barX, barY, barW, 21, 5, true, false);
+  ctx.fillStyle = mix(C.blue, C.orange, fwd.prob, 0.95);
+  roundRect(ctx, barX, barY, barW * fwd.prob, 21, 5, true, false);
+  text(ctx, `P(target = 1) = ${fwd.prob.toFixed(3)}`, barX, barY - 8, { color: C.text, size: 13 });
+  text(ctx, `target ${y}, prediction ${pred}`, barX + barW, barY - 8, { color: pred === y ? rgb(C.green) : rgb(C.warn), size: 13, align: "right" });
+
+  const matches = matchingLines(selectedImage);
+  text(ctx, matches.length ? `Matched: ${matches.map(m => m.name).join(", ")}` : "No complete 5-pixel line.", 16, h - 15, { color: C.muted });
+}
+
+function inputHit(canvas, evt) {
+  const rect = canvas.getBoundingClientRect();
+  const size = clamp(Math.min(rect.width * 0.52, rect.height - 112), 150, 220);
+  const x0 = (rect.width - size) / 2, y0 = 38;
+  const mx = evt.clientX - rect.left, my = evt.clientY - rect.top;
+  if (mx < x0 || my < y0 || mx > x0 + size || my > y0 + size) return null;
+  const c = Math.floor((mx - x0) / (size / 5));
+  const r = Math.floor((my - y0) / (size / 5));
+  return r * 5 + c;
+}
+
+function drawFilters(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx,w,h);
+  const maxAbs = Math.max(1e-6, ...model.W.flat().map(Math.abs));
+  text(ctx, "Click a filter to inspect its feature map and gradients.", 14, 20, { color: C.muted });
+  const cols = w > 900 ? 8 : (w > 560 ? 6 : 4);
+  const margin = 14;
+  const tile = clamp(Math.min((w - 2*margin - (cols - 1) * 13) / cols, 78), 50, 78);
+  const gapX = (w - 2*margin - cols * tile) / Math.max(1, cols - 1);
+  const vertical = tile + 40;
+  for (let f = 0; f < model.F; f++) {
+    const col = f % cols, row = Math.floor(f / cols);
+    const x = margin + col * (tile + gapX);
+    const y = 38 + row * vertical;
+    drawValueGrid(ctx, x, y, tile, model.W[f], model.K, {
+      maxAbs,
+      borderColor: f === selectedFilter ? "#ffffff" : "#526078",
+      borderWidth: f === selectedFilter ? 3 : 1.4
+    });
+    text(ctx, `F${f}`, x, y + tile + 14, { color: C.text, size: 12 });
+    text(ctx, `bias ${model.b[f].toFixed(2)}`, x, y + tile + 29, { color: C.muted, size: 10 });
+  }
+}
+
+function filterHit(canvas, evt) {
+  const rect = canvas.getBoundingClientRect();
+  const cols = rect.width > 900 ? 8 : (rect.width > 560 ? 6 : 4);
+  const margin = 14;
+  const tile = clamp(Math.min((rect.width - 2*margin - (cols - 1) * 13) / cols, 78), 50, 78);
+  const gapX = (rect.width - 2*margin - cols * tile) / Math.max(1, cols - 1);
+  const vertical = tile + 40;
+  const mx = evt.clientX - rect.left, my = evt.clientY - rect.top;
+  for (let f = 0; f < model.F; f++) {
+    const col = f % cols, row = Math.floor(f / cols);
+    const x = margin + col * (tile + gapX);
+    const y = 38 + row * vertical;
+    if (mx >= x && mx <= x + tile && my >= y && my <= y + tile) return f;
+  }
+  return null;
+}
+
+function drawMaps(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx,w,h);
+  const fwd = forward(selectedImage);
+  const f = selectedFilter;
+  const maxMap = Math.max(1e-6, ...fwd.a.flat().map(Math.abs));
+  text(ctx, `Selected filter F${f}: convolution → pre-activation map z → ReLU activation map a`, 14, 22, { color: C.text, size: 13 });
+
+  const size = clamp(Math.min((w - 80) / 3, h - 112), 78, 132);
+  const x1 = 18, x2 = (w - size) / 2, x3 = w - size - 18, y = 52;
+  drawBinaryGrid(ctx, x1, y, size, selectedImage, { borderColor: "#48516b" });
+  drawValueGrid(ctx, x2, y, size, model.W[f], model.K, { maxAbs: Math.max(1e-6, ...model.W[f].map(Math.abs)), borderColor: "#48516b" });
+  drawValueGrid(ctx, x3, y, size, fwd.z[f], model.S, { maxAbs: Math.max(1e-6, ...fwd.z[f].map(Math.abs)), borderColor: "#48516b" });
+  text(ctx, "5×5 input", x1 + size/2, y + size + 18, { align:"center", color:C.muted });
+  text(ctx, `${model.K}×${model.K} filter`, x2 + size/2, y + size + 18, { align:"center", color:C.muted });
+  text(ctx, `${model.S}×${model.S} z-map`, x3 + size/2, y + size + 18, { align:"center", color:C.muted });
+  arrow(ctx, x1+size+10, y+size/2, x2-10, y+size/2, C.muted, 1.3);
+  arrow(ctx, x2+size+10, y+size/2, x3-10, y+size/2, C.muted, 1.3);
+
+  const bottomY = y + size + 46;
+  const mapTile = clamp((h - bottomY - 26), 55, 95);
+  text(ctx, "All ReLU feature maps, one per filter:", 14, bottomY - 8, { color: C.text, size: 12 });
+  const cols = Math.min(model.F, Math.floor((w - 28) / (mapTile + 40)) || 1);
+  for (let i = 0; i < model.F; i++) {
+    const col = i % cols, row = Math.floor(i / cols);
+    const x = 14 + col * (mapTile + 40);
+    const yy = bottomY + row * (mapTile + 25);
+    if (yy + mapTile > h - 10) break;
+    drawActivationGrid(ctx, x, yy, mapTile, fwd.a[i], model.S, {
+      maxVal: maxMap,
+      borderColor: i === selectedFilter ? "#ffffff" : "#4b566e",
+      borderWidth: i === selectedFilter ? 2.4 : 1.2
+    });
+    text(ctx, `F${i}`, x + mapTile/2, yy + mapTile + 16, { align:"center", color:C.muted, size:11 });
+  }
+}
+
+function drawProjection(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx,w,h);
+  const fwd = forward(selectedImage);
+  const flat = fwd.flat;
+  const maxFlat = Math.max(1e-6, ...flat.map(Math.abs));
+  text(ctx, `Flattened vector length = filters × map height × map width = ${model.F} × ${model.S} × ${model.S} = ${model.flat}`, 14, 22, { color: C.text, size: 13 });
+
+  const x0 = 30, y0 = 66, totalW = w - 60;
+  const cellW = Math.max(2, totalW / model.flat);
+  const maxH = 70;
+  for (let i = 0; i < model.flat; i++) {
+    const v = flat[i];
+    const hBar = maxH * v / maxFlat;
+    const f = Math.floor(i / (model.S * model.S));
+    ctx.fillStyle = f === selectedFilter ? rgb(C.green, 0.95) : rgb(C.green, 0.56);
+    ctx.fillRect(x0 + i * cellW, y0 + maxH - hBar, Math.max(1, cellW - 1), hBar);
+    if (i % (model.S * model.S) === 0) {
+      line(ctx, x0 + i * cellW, y0 - 6, x0 + i * cellW, y0 + maxH + 8, "#59637c", 1);
+    }
+  }
+  ctx.strokeStyle = C.line;
+  ctx.strokeRect(x0, y0, totalW, maxH);
+  text(ctx, "flattened ReLU feature vector", x0, y0 - 12, { color: C.muted });
+
+  const yMid = y0 + maxH + 45;
+  if (model.H > 0) {
+    const shownH = Math.min(model.H, 24);
+    const maxHA = Math.max(1e-6, ...fwd.hA.map(Math.abs));
+    text(ctx, `Dense hidden layer: ${model.flat} inputs → ${model.H} ReLU units`, x0, yMid - 12, { color: C.text, size: 13 });
+    const nodeGap = totalW / shownH;
+    for (let j = 0; j < shownH; j++) {
+      const xx = x0 + nodeGap * (j + 0.5);
+      const act = clamp(fwd.hA[j] / maxHA, 0, 1);
+      ctx.fillStyle = mix([32,36,50], C.green, act, 0.95);
+      ctx.strokeStyle = "#8590aa";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(xx, yMid + 30, 12, 0, 2*Math.PI); ctx.fill(); ctx.stroke();
+      if (nodeGap > 22) text(ctx, String(j), xx, yMid + 59, { align:"center", color:C.muted, size:10 });
+    }
+    if (model.H > shownH) text(ctx, `showing ${shownH}/${model.H}`, x0 + totalW, yMid + 59, { align:"right", color:C.muted, size:11 });
+
+    const p = fwd.prob;
+    const outX = w / 2, outY = h - 58;
+    arrow(ctx, outX, yMid + 48, outX, outY - 34, C.muted, 1.3);
+    ctx.fillStyle = mix(C.blue, C.orange, p, 0.94);
+    ctx.strokeStyle = targetFor(selectedImage) === (p >= 0.5 ? 1 : 0) ? rgb(C.green) : rgb(C.warn);
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(outX, outY, 33, 0, 2*Math.PI); ctx.fill(); ctx.stroke();
+    text(ctx, p.toFixed(2), outX, outY + 6, { align:"center", color:"#0f1117", size:18, weight:700 });
+    text(ctx, "sigmoid output", outX, outY + 49, { align:"center", color:C.muted });
+  } else {
+    const maxW = Math.max(1e-6, ...model.V.map(Math.abs));
+    text(ctx, "Direct dense projection: flat vector · output weights + bias", x0, yMid - 12, { color: C.text, size: 13 });
+    for (let i = 0; i < model.flat; i++) {
+      ctx.fillStyle = signedColor(model.V[i], maxW, 0.95);
+      ctx.fillRect(x0 + i * cellW, yMid, Math.max(1, cellW - 1), 42);
+    }
+    ctx.strokeStyle = C.line;
+    ctx.strokeRect(x0, yMid, totalW, 42);
+    const p = fwd.prob;
+    text(ctx, `logit = flat · W + b = ${fwd.logit.toFixed(3)}     sigmoid = ${p.toFixed(3)}`, x0, h - 22, { color: C.text, size: 13 });
+  }
+}
+
+function drawNetwork(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx,w,h);
+  const fwd = forward(selectedImage);
+  const y = targetFor(selectedImage), pred = fwd.prob >= 0.5 ? 1 : 0;
+  const xInput = 48, xFilters = w * 0.22, xMaps = w * 0.40, xFlat = w * 0.57, xDense = w * 0.74, xOut = w - 82;
+  const yCenter = h / 2;
+  text(ctx, "Shape transition through the CNN", 16, 24, { color: C.text, size: 14, weight: 650 });
+
+  const inputSize = clamp(h * 0.34, 105, 150);
+  drawBinaryGrid(ctx, xInput, yCenter - inputSize/2, inputSize, selectedImage, { highlight: true, borderColor: labelColor(y,0.95), borderWidth: 3 });
+  text(ctx, "input", xInput + inputSize/2, yCenter + inputSize/2 + 21, { align:"center", color:C.text, size:12 });
+  text(ctx, "5×5", xInput + inputSize/2, yCenter + inputSize/2 + 38, { align:"center", color:C.muted, size:11 });
+
+  arrow(ctx, xInput + inputSize + 12, yCenter, xFilters - 32, yCenter, C.muted, 1.4);
+
+  const fTile = clamp(h * 0.11, 38, 54);
+  const shownF = Math.min(model.F, 8);
+  const fY0 = yCenter - (shownF * (fTile + 6) - 6) / 2;
+  const maxW = Math.max(1e-6, ...model.W.flat().map(Math.abs));
+  for (let i = 0; i < shownF; i++) {
+    drawValueGrid(ctx, xFilters - fTile/2, fY0 + i * (fTile + 6), fTile, model.W[i], model.K, {
+      maxAbs: maxW,
+      borderColor: i === selectedFilter ? "#ffffff" : "#4d5870",
+      borderWidth: i === selectedFilter ? 2.2 : 1
+    });
+  }
+  text(ctx, `${model.F} filters`, xFilters, 32, { align:"center", color:C.text, size:12 });
+  text(ctx, `${model.K}×${model.K} each`, xFilters, 48, { align:"center", color:C.muted, size:11 });
+  if (model.F > shownF) text(ctx, `showing ${shownF}/${model.F}`, xFilters, h - 16, { align:"center", color:C.muted, size:11 });
+
+  arrow(ctx, xFilters + fTile/2 + 24, yCenter, xMaps - 50, yCenter, C.muted, 1.4);
+
+  const mTile = clamp(h * 0.105, 36, 52);
+  const mY0 = yCenter - (shownF * (mTile + 6) - 6) / 2;
+  const maxAct = Math.max(1e-6, ...fwd.a.flat().map(Math.abs));
+  for (let i = 0; i < shownF; i++) {
+    drawActivationGrid(ctx, xMaps - mTile/2, mY0 + i*(mTile+6), mTile, fwd.a[i], model.S, {
+      maxVal: maxAct,
+      borderColor: i === selectedFilter ? "#ffffff" : "#4d5870",
+      borderWidth: i === selectedFilter ? 2.2 : 1
+    });
+  }
+  text(ctx, "ReLU feature maps", xMaps, 32, { align:"center", color:C.text, size:12 });
+  text(ctx, `${model.F} × ${model.S}×${model.S}`, xMaps, 48, { align:"center", color:C.muted, size:11 });
+
+  arrow(ctx, xMaps + mTile/2 + 24, yCenter, xFlat - 42, yCenter, C.muted, 1.4);
+
+  const flatH = Math.min(180, h - 150);
+  const flatW = 70;
+  const flatX = xFlat - flatW/2, flatY = yCenter - flatH/2;
+  const flat = fwd.flat;
+  for (let i = 0; i < model.flat; i++) {
+    const yy = flatY + i * flatH / model.flat;
+    const hh = Math.max(1, flatH / model.flat - 0.5);
+    const f = Math.floor(i / (model.S * model.S));
+    ctx.fillStyle = f === selectedFilter ? rgb(C.green, 0.92) : mix([34,39,55], C.green, clamp(flat[i]/maxAct,0,1), 0.8);
+    ctx.fillRect(flatX, yy, flatW, hh);
+    if (i % (model.S * model.S) === 0) line(ctx, flatX, yy, flatX + flatW, yy, "#6a748d", 1);
+  }
+  ctx.strokeStyle = "#8792aa"; ctx.strokeRect(flatX, flatY, flatW, flatH);
+  text(ctx, "flatten", xFlat, 32, { align:"center", color:C.text, size:12 });
+  text(ctx, `${model.flat}-D vector`, xFlat, 48, { align:"center", color:C.muted, size:11 });
+
+  arrow(ctx, xFlat + flatW/2 + 24, yCenter, xDense - 50, yCenter, C.muted, 1.4);
+
+  if (model.H > 0) {
+    const shownH = Math.min(model.H, 10);
+    const nodeGap = Math.min(32, (h - 110) / Math.max(1, shownH));
+    const y0 = yCenter - nodeGap * (shownH-1) / 2;
+    const maxH = Math.max(1e-6, ...fwd.hA.map(Math.abs));
+    for (let j = 0; j < shownH; j++) {
+      const yy = y0 + j*nodeGap;
+      ctx.fillStyle = mix([34,39,55], C.green, clamp(fwd.hA[j]/maxH,0,1), 0.95);
+      ctx.strokeStyle = "#8792aa"; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(xDense, yy, 12, 0, 2*Math.PI); ctx.fill(); ctx.stroke();
+    }
+    text(ctx, "dense hidden", xDense, 32, { align:"center", color:C.text, size:12 });
+    text(ctx, `${model.H} ReLU units`, xDense, 48, { align:"center", color:C.muted, size:11 });
+    if (model.H > shownH) text(ctx, `showing ${shownH}/${model.H}`, xDense, h - 16, { align:"center", color:C.muted, size:11 });
+  } else {
+    ctx.fillStyle = "#202432";
+    ctx.strokeStyle = "#8792aa";
+    roundRect(ctx, xDense - 48, yCenter - 28, 96, 56, 10, true, true);
+    text(ctx, "direct", xDense, yCenter - 4, { align:"center", color:C.text, size:12 });
+    text(ctx, "projection", xDense, yCenter + 14, { align:"center", color:C.muted, size:11 });
+    text(ctx, "dense output", xDense, 32, { align:"center", color:C.text, size:12 });
+    text(ctx, "no hidden layer", xDense, 48, { align:"center", color:C.muted, size:11 });
+  }
+
+  arrow(ctx, xDense + 52, yCenter, xOut - 45, yCenter, C.muted, 1.4);
+
+  ctx.fillStyle = mix(C.blue, C.orange, fwd.prob, 0.95);
+  ctx.strokeStyle = pred === y ? rgb(C.green) : rgb(C.warn);
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(xOut, yCenter, 38, 0, 2*Math.PI); ctx.fill(); ctx.stroke();
+  text(ctx, fwd.prob.toFixed(2), xOut, yCenter + 6, { align:"center", color:"#0f1117", size:20, weight:700 });
+  text(ctx, "sigmoid", xOut, 32, { align:"center", color:C.text, size:12 });
+  text(ctx, "target=1 prob.", xOut, 48, { align:"center", color:C.muted, size:11 });
+
+  text(ctx, `Selected image: target ${y}, prediction ${pred}, logit ${fwd.logit.toFixed(3)}`, 16, h - 17, {
+    color: pred === y ? rgb(C.green) : rgb(C.warn),
+    size: 12
+  });
+}
+
+function drawBackprop(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx,w,h);
+  const y = targetFor(selectedImage);
+  const back = backwardOne(selectedImage, y);
+  const f = selectedFilter;
+  const maxAbs = Math.max(1e-6, ...back.gx.map(Math.abs), ...back.gW[f].map(Math.abs));
+  text(ctx, `Backpropagation for selected image and selected filter F${f}`, 16, 24, { color: C.text, size: 14, weight: 650 });
+  text(ctx, `output error p − y = ${back.dlogit.toFixed(4)}. ReLU blocks gradients where convolution pre-activation is ≤ 0.`, 16, 44, { color: C.muted });
+
+  const size = clamp(Math.min((w - 90) / 2, h - 150), 96, 150);
+  const x1 = w * 0.26 - size/2, x2 = w * 0.74 - size/2, y0 = 70;
+  drawValueGrid(ctx, x1, y0, size, back.gx, 5, { maxAbs, borderColor:"#48516b" });
+  drawValueGrid(ctx, x2, y0, size, back.gW[f], model.K, { maxAbs, borderColor:"#48516b" });
+  text(ctx, "gradient w.r.t. input pixels", x1 + size/2, y0 + size + 20, { align:"center", color:C.muted });
+  text(ctx, `gradient w.r.t. filter F${f}`, x2 + size/2, y0 + size + 20, { align:"center", color:C.muted });
+
+  const stripY = y0 + size + 48;
+  const stripX = 30, stripW = w - 60, stripH = 36;
+  const maxFlatGrad = Math.max(1e-6, ...back.dFlat.map(Math.abs));
+  text(ctx, "gradient w.r.t. flattened feature vector", stripX, stripY - 10, { color: C.text, size: 12 });
+  for (let i = 0; i < model.flat; i++) {
+    ctx.fillStyle = signedColor(back.dFlat[i], maxFlatGrad, 0.95);
+    const cw = stripW / model.flat;
+    ctx.fillRect(stripX + i*cw, stripY, Math.max(1, cw - 0.5), stripH);
+    if (i % (model.S * model.S) === 0) line(ctx, stripX + i*cw, stripY, stripX + i*cw, stripY + stripH, "#6a748d", 1);
+  }
+  ctx.strokeStyle = C.line; ctx.strokeRect(stripX, stripY, stripW, stripH);
+
+  text(ctx, "Orange = increasing that value would increase current loss. Blue = increasing it would reduce current loss.", 16, h - 16, { color: C.muted });
+}
+
+function drawCurve(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx,w,h);
+  const padL = 50, padR = 24, padT = 30, padB = 42;
+  const x0 = padL, x1 = w - padR, y0 = h - padB, y1 = padT;
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(x0, y1, x1-x0, y0-y1);
+  text(ctx, "loss", x0, 18, { color: rgb(C.orange), size: 12 });
+  text(ctx, "test accuracy", x0 + 46, 18, { color: rgb(C.green), size: 12 });
+  text(ctx, "train accuracy", x0 + 138, 18, { color: rgb(C.blue), size: 12 });
+
+  if (history.length < 2) {
+    text(ctx, "Press Train or Step ×25 to add training history.", w/2, h/2, { align:"center", color:C.muted, size:13 });
+    return;
+  }
+
+  const minStep = history[0].step;
+  const maxStep = Math.max(minStep + 1, history[history.length - 1].step);
+  const maxLoss = Math.max(0.25, ...history.map(d => d.loss));
+  const minLoss = Math.min(0, ...history.map(d => d.loss));
+  const px = s => x0 + (s - minStep) / (maxStep - minStep) * (x1 - x0);
+  const pyLoss = l => y0 - (l - minLoss) / (maxLoss - minLoss) * (y0 - y1);
+  const pyAcc = a => y0 - a * (y0 - y1);
+
+  function drawLine(points, yFunc, color) {
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+    points.forEach((d, i) => {
+      const x = px(d.step), y = yFunc(d);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  }
+  drawLine(history, d => pyLoss(d.loss), rgb(C.orange, 0.95));
+  drawLine(history, d => pyAcc(d.testAcc), rgb(C.green, 0.95));
+  drawLine(history, d => pyAcc(d.trainAcc), rgb(C.blue, 0.75));
+
+  text(ctx, `step ${updateCount}`, x1, h - 14, { align:"right", color:C.muted });
+  text(ctx, `loss ${metrics.loss.toFixed(4)}   train ${(100*metrics.trainAcc).toFixed(1)}%   test ${(100*metrics.testAcc).toFixed(1)}%`, x1, 18, {
+    align:"right", color:C.text, size:12
+  });
+}
+
+const drawers = {
+  dataset: drawDataset,
+  rule: drawRule,
+  input: drawInput,
+  filters: drawFilters,
+  maps: drawMaps,
+  projection: drawProjection,
+  network: drawNetwork,
+  backprop: drawBackprop,
+  curve: drawCurve
+};
+
+function renderAll() {
+  if (!model) return;
+  metrics = evaluateSet(trainX, trainY, Math.min(1024, trainX.length));
+  const test = evaluateSet(testX, testY, Math.min(1024, testX.length));
+  metrics.trainAcc = metrics.acc;
+  metrics.testAcc = test.acc;
+  for (const key of Object.keys(canvases)) drawers[key](canvases[key]);
+  if (fullView) drawers[fullView]($("modalCanvas"));
+  updateStats();
+}
+
+function updateStats() {
+  $("filtersVal").textContent = controls.filters.value;
+  $("hiddenVal").textContent = controls.hidden.value;
+  $("datasetVal").textContent = controls.datasetSize.value;
+  $("lrVal").textContent = Number(controls.lr.value).toFixed(3);
+  $("batchVal").textContent = controls.batch.value;
+  $("speedVal").textContent = controls.speed.value;
+  $("stepStat").textContent = String(updateCount);
+  $("lossStat").textContent = Number.isFinite(metrics.loss) ? metrics.loss.toFixed(4) : "—";
+  $("trainAccStat").textContent = Number.isFinite(metrics.trainAcc) ? `${(100 * metrics.trainAcc).toFixed(1)}%` : "—";
+  $("testAccStat").textContent = Number.isFinite(metrics.testAcc) ? `${(100 * metrics.testAcc).toFixed(1)}%` : "—";
+  const y = targetFor(selectedImage);
+  const p = forward(selectedImage).prob;
+  const pred = p >= 0.5 ? 1 : 0;
+  $("targetStat").textContent = String(y);
+  $("predStat").textContent = `${pred} (${p.toFixed(3)})`;
+}
+
+function resetWeightsOnly() {
+  training = false;
+  controls.trainBtn.textContent = "Train";
+  initModel();
+  renderAll();
+}
+
+function resetAll(newData=false) {
+  training = false;
+  controls.trainBtn.textContent = "Train";
+  buildData(newData);
+  initModel();
+  renderAll();
+}
+
+function openFull(key) {
+  fullView = key;
+  $("modalTitle").textContent = viewTitles[key];
+  $("modal").classList.remove("hidden");
+  drawers[key]($("modalCanvas"));
+}
+function closeFull() {
+  fullView = null;
+  $("modal").classList.add("hidden");
+}
+
+document.querySelectorAll(".fullBtn").forEach(btn => btn.addEventListener("click", () => openFull(btn.dataset.view)));
+$("modalClose").addEventListener("click", closeFull);
+window.addEventListener("keydown", evt => { if (evt.key === "Escape") closeFull(); });
+
+function handleClick(key, evt, canvas) {
+  if (key === "dataset") {
+    const idx = datasetHit(canvas, evt);
+    if (idx !== null) {
+      selectedIndex = idx;
+      selectedImage = trainX[idx].slice();
+      renderAll();
+    }
+  } else if (key === "input") {
+    const i = inputHit(canvas, evt);
+    if (i !== null) {
+      selectedImage[i] = selectedImage[i] ? 0 : 1;
+      selectedIndex = -1;
+      renderAll();
+    }
+  } else if (key === "filters") {
+    const f = filterHit(canvas, evt);
+    if (f !== null) {
+      selectedFilter = f;
+      renderAll();
+    }
+  }
+}
+canvases.dataset.addEventListener("click", evt => handleClick("dataset", evt, canvases.dataset));
+canvases.input.addEventListener("click", evt => handleClick("input", evt, canvases.input));
+canvases.filters.addEventListener("click", evt => handleClick("filters", evt, canvases.filters));
+$("modalCanvas").addEventListener("click", evt => { if (fullView) handleClick(fullView, evt, $("modalCanvas")); });
+
+controls.trainBtn.addEventListener("click", () => {
+  training = !training;
+  controls.trainBtn.textContent = training ? "Pause" : "Train";
+});
+controls.stepBtn.addEventListener("click", () => {
+  training = false;
+  controls.trainBtn.textContent = "Train";
+  trainStep(25);
+  recordHistory();
+  renderAll();
+});
+controls.resetWeightsBtn.addEventListener("click", resetWeightsOnly);
+controls.resetDataBtn.addEventListener("click", () => resetAll(true));
+
+controls.filters.addEventListener("input", updateStats);
+controls.hidden.addEventListener("input", updateStats);
+controls.datasetSize.addEventListener("input", updateStats);
+controls.lr.addEventListener("input", updateStats);
+controls.batch.addEventListener("input", updateStats);
+controls.speed.addEventListener("input", updateStats);
+
+controls.filters.addEventListener("change", resetWeightsOnly);
+controls.kernel.addEventListener("change", resetWeightsOnly);
+controls.hidden.addEventListener("change", resetWeightsOnly);
+controls.datasetSize.addEventListener("change", () => resetAll(false));
+
+controls.randomBtn.addEventListener("click", () => { selectRandom(null); renderAll(); });
+controls.positiveBtn.addEventListener("click", () => { selectRandom(1); renderAll(); });
+controls.negativeBtn.addEventListener("click", () => { selectRandom(0); renderAll(); });
+controls.clearBtn.addEventListener("click", () => { selectedImage = Array(25).fill(0); selectedIndex = -1; renderAll(); });
+
+window.addEventListener("resize", () => renderAll());
+
+function loop() {
+  if (training) {
+    const s = parseInt(controls.speed.value, 10);
+    trainStep(s);
+    renderAll();
+  }
+  requestAnimationFrame(loop);
+}
+
+resetAll(false);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
