@@ -1,0 +1,2530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MLP Latent Space Explorer</title>
+<style>
+  :root {
+    --bg0: #090b11;
+    --bg1: #0f1117;
+    --bg2: #141823;
+    --panel: rgba(23, 26, 35, 0.92);
+    --panel2: #202432;
+    --panel3: #252a3a;
+    --line: #353b4f;
+    --line2: #4a526c;
+    --text: #edf0f8;
+    --muted: #aab0c0;
+    --muted2: #778095;
+    --blue: #4b8fe8;
+    --orange: #f59b3d;
+    --green: #8bd17c;
+    --yellow: #f1cf65;
+    --red: #e9707d;
+    --shadow: rgba(0,0,0,0.25);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(circle at top left, rgba(75,143,232,0.15), transparent 35vw),
+      radial-gradient(circle at top right, rgba(245,155,61,0.12), transparent 35vw),
+      linear-gradient(180deg, var(--bg0), var(--bg1) 240px, var(--bg1));
+    color: var(--text);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  }
+
+  header {
+    padding: 24px 24px 16px;
+    border-bottom: 1px solid rgba(53,59,79,0.75);
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) auto;
+    gap: 20px;
+    align-items: end;
+    max-width: 1500px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    margin: 0 0 8px;
+    font-size: clamp(25px, 3vw, 39px);
+    line-height: 1.05;
+    letter-spacing: -0.035em;
+  }
+
+  header p {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.5;
+    max-width: 1020px;
+    font-size: 14px;
+  }
+
+  .badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .badge {
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.055);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 7px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .tabs {
+    position: sticky;
+    top: 0;
+    z-index: 7;
+    border-bottom: 1px solid var(--line);
+    background: rgba(13, 16, 24, 0.96);
+    backdrop-filter: blur(12px);
+  }
+
+  .tabsInner {
+    max-width: 1500px;
+    margin: 0 auto;
+    display: flex;
+    gap: 8px;
+    padding: 10px 18px;
+    overflow-x: auto;
+  }
+
+  .tab {
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    padding: 10px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    font-size: 14px;
+  }
+
+  .tab:hover {
+    background: rgba(255,255,255,0.055);
+    color: var(--text);
+  }
+
+  .tab.active {
+    color: var(--text);
+    border-color: rgba(255,255,255,0.14);
+    background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.045));
+  }
+
+  .controls {
+    max-width: 1500px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 10px;
+    padding: 14px 18px;
+  }
+
+  .control {
+    background: var(--panel);
+    border: 1px solid rgba(53,59,79,0.92);
+    border-radius: 14px;
+    padding: 11px;
+    box-shadow: 0 16px 40px var(--shadow);
+    min-height: 70px;
+  }
+
+  .control label {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+
+  .span2 { grid-column: span 2; }
+  .span3 { grid-column: span 3; }
+  .span4 { grid-column: span 4; }
+  .span5 { grid-column: span 5; }
+  .span6 { grid-column: span 6; }
+
+  select, input, button {
+    font: inherit;
+  }
+
+  select, input[type="number"] {
+    width: 100%;
+    background: var(--panel2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 9px;
+    outline: none;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: #8b94aa;
+  }
+
+  button {
+    border: 1px solid var(--line);
+    background: var(--panel2);
+    color: var(--text);
+    padding: 9px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+
+  button:hover { filter: brightness(1.12); }
+  button.primary {
+    background: linear-gradient(180deg, #34415f, #253149);
+    border-color: #55627f;
+  }
+  button.danger {
+    background: linear-gradient(180deg, #49303a, #322029);
+    border-color: #704052;
+  }
+  button.smallBtn {
+    padding: 7px 9px;
+    font-size: 12px;
+  }
+
+  .buttonRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .dimsWrap {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(62px, 1fr));
+    gap: 7px;
+  }
+
+  .dimsWrap .dimItem label {
+    margin-bottom: 4px;
+    font-size: 11px;
+  }
+
+  .stats {
+    max-width: 1500px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    padding: 0 18px 14px;
+  }
+
+  .stat {
+    background: rgba(23,26,35,0.82);
+    border: 1px solid rgba(53,59,79,0.88);
+    border-radius: 14px;
+    padding: 11px 12px;
+    min-height: 70px;
+  }
+
+  .stat .label {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .stat .value {
+    margin-top: 4px;
+    font-size: 19px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  main {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 2px 18px 26px;
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .pageIntro {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 16px;
+    margin: 6px 0 14px;
+    padding: 14px 16px;
+    border: 1px solid rgba(53,59,79,0.84);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.025));
+  }
+
+  .pageIntro h2 {
+    margin: 0 0 5px;
+    font-size: 18px;
+    letter-spacing: -0.01em;
+  }
+
+  .pageIntro p {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.45;
+    font-size: 13px;
+  }
+
+  .pageTools {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .pageTools label {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(280px, 1fr));
+    gap: 14px;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid rgba(53,59,79,0.92);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 18px 44px var(--shadow);
+    min-width: 0;
+  }
+
+  .cardHeader {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 13px 10px;
+    min-height: 78px;
+  }
+
+  .card h3 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+  }
+
+  .card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 320px;
+    background: #10131d;
+    border-top: 1px solid rgba(53,59,79,0.88);
+  }
+
+  .h260 canvas { height: 260px; }
+  .h360 canvas { height: 360px; }
+  .h420 canvas { height: 420px; }
+  .h500 canvas { height: 500px; }
+
+  .wide { grid-column: span 3; }
+  .twoWide { grid-column: span 2; }
+
+  .note {
+    margin-top: 14px;
+    padding: 13px 14px;
+    border-radius: 16px;
+    background: rgba(23,26,35,0.80);
+    border: 1px solid rgba(53,59,79,0.88);
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.48;
+  }
+
+  .note strong {
+    color: var(--text);
+    font-weight: 650;
+  }
+
+  .modal {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    background: #0f1117;
+  }
+
+  .modal.hidden { display: none; }
+
+  .modalTop {
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(13,16,24,0.98);
+  }
+
+  .modalTop strong {
+    font-size: 15px;
+  }
+
+  #modalCanvas {
+    flex: 1;
+    width: 100vw;
+    height: calc(100vh - 56px);
+    border: 0;
+  }
+
+  .micro {
+    font-size: 11px;
+    color: var(--muted2);
+  }
+
+  @media (max-width: 1160px) {
+    .hero { grid-template-columns: 1fr; }
+    .badges { justify-content: flex-start; }
+    .controls { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .span2, .span3, .span4, .span5, .span6 { grid-column: span 3; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .grid { grid-template-columns: 1fr; }
+    .wide, .twoWide { grid-column: span 1; }
+    .dimsWrap { grid-template-columns: repeat(3, minmax(62px, 1fr)); }
+    .pageIntro { align-items: start; flex-direction: column; }
+    .pageTools { justify-content: flex-start; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="hero">
+    <div>
+      <h1>MLP Latent Space Explorer</h1>
+      <p>
+        Train a configurable ReLU MLP on 2D classification datasets, then inspect how the network remaps the input through successive hidden representations. Select a data sample or click any region in R² to create a probe point, then follow its prediction path through the model.
+      </p>
+    </div>
+    <div class="badges">
+      <span class="badge">R² classification</span>
+      <span class="badge">Dynamic hidden layers</span>
+      <span class="badge">Per-layer PCA</span>
+      <span class="badge">Accuracy-jump snapshots</span>
+      <span class="badge">Latent transitions</span>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs">
+  <div class="tabsInner">
+    <button class="tab active" data-page="explore">Explore</button>
+    <button class="tab" data-page="sample">Sample journey</button>
+    <button class="tab" data-page="jumps">Accuracy jumps</button>
+    <button class="tab" data-page="links">Latent links</button>
+    <button class="tab" data-page="mechanics">Mechanics</button>
+  </div>
+</nav>
+
+<section class="controls">
+  <div class="control span2">
+    <label for="dataset">Dataset</label>
+    <select id="dataset">
+      <option value="circle">Circle: inner vs outer</option>
+      <option value="regions">Two easy regions</option>
+      <option value="spirals">Two spirals</option>
+      <option value="moons">Two moons</option>
+      <option value="xor">XOR quadrants</option>
+      <option value="rings">Alternating rings</option>
+      <option value="checker">Checkerboard</option>
+      <option value="sine">Sine boundary</option>
+      <option value="pinwheel">Pinwheel</option>
+      <option value="blobs">Four alternating blobs</option>
+    </select>
+  </div>
+
+  <div class="control span2">
+    <label for="samples">Samples: <span id="samplesVal">520</span></label>
+    <input id="samples" type="range" min="160" max="1000" step="20" value="520" />
+  </div>
+
+  <div class="control span2">
+    <label for="selectMode">Click behavior</label>
+    <select id="selectMode">
+      <option value="probe">Create a free probe point</option>
+      <option value="sample">Select nearest training sample</option>
+    </select>
+  </div>
+
+  <div class="control span2">
+    <label for="numHidden">Hidden layers: <span id="numHiddenVal">3</span></label>
+    <input id="numHidden" type="range" min="1" max="5" step="1" value="3" />
+  </div>
+
+  <div class="control span4">
+    <label>Hidden dimensions</label>
+    <div id="dimsWrap" class="dimsWrap"></div>
+  </div>
+
+  <div class="control span2">
+    <label for="lr">Learning rate: <span id="lrVal">0.020</span></label>
+    <input id="lr" type="range" min="0.001" max="0.080" step="0.001" value="0.020" />
+  </div>
+
+  <div class="control span2">
+    <label for="batch">Batch size: <span id="batchVal">96</span></label>
+    <input id="batch" type="range" min="16" max="256" step="16" value="96" />
+  </div>
+
+  <div class="control span4">
+    <label>Training</label>
+    <div class="buttonRow">
+      <button id="trainBtn" class="primary">Train</button>
+      <button id="stepBtn">Step ×100</button>
+      <button id="resetWeightsBtn">Reset weights</button>
+      <button id="resetAllBtn" class="danger">Reset data</button>
+    </div>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="stat"><div class="label">Optimizer updates</div><div id="stepStat" class="value">0</div></div>
+  <div class="stat"><div class="label">Cross-entropy loss</div><div id="lossStat" class="value">—</div></div>
+  <div class="stat"><div class="label">Accuracy</div><div id="accStat" class="value">—</div></div>
+  <div class="stat"><div class="label">Selected point</div><div id="selStat" class="value">sample #0</div></div>
+  <div class="stat"><div class="label">Prediction</div><div id="predStat" class="value">—</div></div>
+  <div class="stat"><div class="label">Architecture</div><div id="archStat" class="value" style="font-size:14px">2 → 16 → 16 → 16 → 2</div></div>
+</section>
+
+<main>
+  <section id="page-explore" class="page active">
+    <div class="pageIntro">
+      <div>
+        <h2>Explore the learned geometry</h2>
+        <p>Start from R², watch the decision surface, then inspect a PCA projection for every hidden layer. Click the input map or decision map to choose a point.</p>
+      </div>
+      <div class="pageTools">
+        <button id="selectRandomSample" class="smallBtn">Random sample</button>
+        <button id="selectWrongSample" class="smallBtn">Find wrong sample</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="cardHeader">
+          <div><h3>Input distribution in R²</h3><p>Original data. Blue and orange are the two classes.</p></div>
+          <button class="fullBtn smallBtn" data-view="input">Focus</button>
+        </div>
+        <canvas id="inputCanvas"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="cardHeader">
+          <div><h3>Learned output over R²</h3><p>Background is P(orange). The boundary shows the current classifier.</p></div>
+          <button class="fullBtn smallBtn" data-view="boundary">Focus</button>
+        </div>
+        <canvas id="boundaryCanvas"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="cardHeader">
+          <div><h3>Output latent: logits</h3><p>The last two coordinates before softmax. The diagonal is equal score.</p></div>
+          <button class="fullBtn smallBtn" data-view="output">Focus</button>
+        </div>
+        <canvas id="outputCanvas"></canvas>
+      </div>
+    </div>
+
+    <div class="grid" id="latentGrid" style="margin-top:14px;"></div>
+  </section>
+
+  <section id="page-sample" class="page">
+    <div class="pageIntro">
+      <div>
+        <h2>Follow one point through the MLP</h2>
+        <p>Select a sample or free probe point in R². This page shows how that point is transformed layer by layer until the final prediction.</p>
+      </div>
+      <div class="pageTools">
+        <span class="micro">Click behavior is controlled globally above.</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="cardHeader">
+          <div><h3>Select or probe in R²</h3><p>Click the map to choose where the prediction is evaluated.</p></div>
+          <button class="fullBtn smallBtn" data-view="sampleMap">Focus</button>
+        </div>
+        <canvas id="sampleMapCanvas"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="cardHeader">
+          <div><h3>Prediction explanation</h3><p>Probability, logit difference, and final-layer contributions.</p></div>
+          <button class="fullBtn smallBtn" data-view="prediction">Focus</button>
+        </div>
+        <canvas id="predictionCanvas"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="cardHeader">
+          <div><h3>Activations and ReLU gates</h3><p>For each hidden layer: activation magnitude and local gradient.</p></div>
+          <button class="fullBtn smallBtn" data-view="activation">Focus</button>
+        </div>
+        <canvas id="activationCanvas"></canvas>
+      </div>
+
+      <div class="card wide h420">
+        <div class="cardHeader">
+          <div><h3>Layer-by-layer journey</h3><p>The same selected point is highlighted in input space, every hidden PCA, and output-logit space.</p></div>
+          <button class="fullBtn smallBtn" data-view="journey">Focus</button>
+        </div>
+        <canvas id="journeyCanvas"></canvas>
+      </div>
+
+      <div class="card wide h420">
+        <div class="cardHeader">
+          <div><h3>Forward pass and backpropagation graph</h3><p>Node fill is forward activation. Orange rings show local error magnitude. Grey ReLUs are inactive.</p></div>
+          <button class="fullBtn smallBtn" data-view="network">Focus</button>
+        </div>
+        <canvas id="networkCanvas"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section id="page-jumps" class="page">
+    <div class="pageIntro">
+      <div>
+        <h2>Accuracy jumps and representation changes</h2>
+        <p>The app stores snapshots when accuracy improves or at regular intervals. Select an improvement jump, then compare decision boundaries, latent PCA spaces, and output logits before versus after the jump.</p>
+      </div>
+      <div class="pageTools">
+        <button id="prevJumpBtn" class="smallBtn">Previous jump</button>
+        <button id="nextJumpBtn" class="smallBtn">Next jump</button>
+        <label>Latent layer</label>
+        <select id="jumpLayerSelect"></select>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card wide">
+        <div class="cardHeader">
+          <div><h3>Training curve with accuracy-jump markers</h3><p>Click a marker to inspect the associated before/after snapshots.</p></div>
+          <button class="fullBtn smallBtn" data-view="curve">Focus</button>
+        </div>
+        <canvas id="curveCanvas"></canvas>
+      </div>
+
+      <div class="card wide h500">
+        <div class="cardHeader">
+          <div><h3>Before/after comparison</h3><p>Decision surface, selected hidden latent, and output-logit latent before and after the selected accuracy jump.</p></div>
+          <button class="fullBtn smallBtn" data-view="jumpCompare">Focus</button>
+        </div>
+        <canvas id="jumpCompareCanvas"></canvas>
+      </div>
+
+      <div class="card wide">
+        <div class="cardHeader">
+          <div><h3>Class separability by layer</h3><p>Centroid separation divided by within-class spread, measured in the actual layer space, before and after the jump.</p></div>
+          <button class="fullBtn smallBtn" data-view="separability">Focus</button>
+        </div>
+        <canvas id="separabilityCanvas"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section id="page-links" class="page">
+    <div class="pageIntro">
+      <div>
+        <h2>Link latent spaces together</h2>
+        <p>To see how one latent space becomes the next, this page draws paired projections. Each thin line connects the same data point before and after one layer transition.</p>
+      </div>
+      <div class="pageTools">
+        <label>Transition</label>
+        <select id="transitionSelect"></select>
+        <label>Links: <span id="linkCountVal">90</span></label>
+        <input id="linkCount" type="range" min="20" max="220" step="10" value="90" style="width:120px" />
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card wide h500">
+        <div class="cardHeader">
+          <div><h3>Paired latent transition</h3><p>Left = source space. Right = target space. Lines connect identical samples across the transition.</p></div>
+          <button class="fullBtn smallBtn" data-view="transition">Focus</button>
+        </div>
+        <canvas id="transitionCanvas"></canvas>
+      </div>
+
+      <div class="card wide h420">
+        <div class="cardHeader">
+          <div><h3>Selected point trajectory across all spaces</h3><p>Small multiples show the selected point moving through input, hidden spaces, and output logits.</p></div>
+          <button class="fullBtn smallBtn" data-view="trajectory">Focus</button>
+        </div>
+        <canvas id="trajectoryCanvas"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section id="page-mechanics" class="page">
+    <div class="pageIntro">
+      <div>
+        <h2>How to read the visualization</h2>
+        <p>This page gives a compact explanation of the model, the PCA projections, and the latent-link views.</p>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card h360">
+        <div class="cardHeader">
+          <div><h3>Model architecture</h3><p>Dense + ReLU blocks followed by a two-logit softmax classifier.</p></div>
+          <button class="fullBtn smallBtn" data-view="architecture">Focus</button>
+        </div>
+        <canvas id="architectureCanvas"></canvas>
+      </div>
+
+      <div class="card h360">
+        <div class="cardHeader">
+          <div><h3>Distribution gallery</h3><p>The datasets are designed to stress different geometric transformations.</p></div>
+          <button class="fullBtn smallBtn" data-view="distributionGuide">Focus</button>
+        </div>
+        <canvas id="distributionGuideCanvas"></canvas>
+      </div>
+
+      <div class="card h360">
+        <div class="cardHeader">
+          <div><h3>PCA interpretation</h3><p>PCA is a viewing lens. It is not the actual classifier, but it exposes dominant directions of variation.</p></div>
+          <button class="fullBtn smallBtn" data-view="pcaGuide">Focus</button>
+        </div>
+        <canvas id="pcaGuideCanvas"></canvas>
+      </div>
+    </div>
+
+    <div class="note">
+      <strong>Suggested workflow.</strong> Start on Explore and train the model until the boundary stabilizes. Then move to Sample journey and click a difficult point near the boundary. Use Accuracy jumps to inspect which layers changed during sudden improvements. Finally, use Latent links to see how a cloud of points is transported from one representation to the next.
+    </div>
+  </section>
+</main>
+
+<div id="modal" class="modal hidden">
+  <div class="modalTop">
+    <strong id="modalTitle">Focused chart</strong>
+    <button id="modalClose">Close</button>
+  </div>
+  <canvas id="modalCanvas"></canvas>
+</div>
+
+<script>
+"use strict";
+
+const BLUE = [75, 143, 232];
+const ORANGE = [245, 155, 61];
+const GREEN = [139, 209, 124];
+const YELLOW = [241, 207, 101];
+const RED = [233, 112, 125];
+const BG = "#10131d";
+const PANEL = "#171a23";
+const LINE = "#353b4f";
+const AXIS = "#444b62";
+const TEXT = "#edf0f8";
+const MUTED = "#aab0c0";
+const MUTED2 = "#778095";
+
+const $ = (id) => document.getElementById(id);
+
+const controls = {
+  dataset: $("dataset"),
+  samples: $("samples"),
+  selectMode: $("selectMode"),
+  numHidden: $("numHidden"),
+  dimsWrap: $("dimsWrap"),
+  lr: $("lr"),
+  batch: $("batch"),
+  trainBtn: $("trainBtn"),
+  stepBtn: $("stepBtn"),
+  resetWeightsBtn: $("resetWeightsBtn"),
+  resetAllBtn: $("resetAllBtn"),
+  jumpLayerSelect: $("jumpLayerSelect"),
+  transitionSelect: $("transitionSelect"),
+  linkCount: $("linkCount")
+};
+
+const canvases = {
+  input: $("inputCanvas"),
+  boundary: $("boundaryCanvas"),
+  output: $("outputCanvas"),
+  sampleMap: $("sampleMapCanvas"),
+  prediction: $("predictionCanvas"),
+  activation: $("activationCanvas"),
+  journey: $("journeyCanvas"),
+  network: $("networkCanvas"),
+  curve: $("curveCanvas"),
+  jumpCompare: $("jumpCompareCanvas"),
+  separability: $("separabilityCanvas"),
+  transition: $("transitionCanvas"),
+  trajectory: $("trajectoryCanvas"),
+  architecture: $("architectureCanvas"),
+  distributionGuide: $("distributionGuideCanvas"),
+  pcaGuide: $("pcaGuideCanvas")
+};
+
+const viewTitles = {
+  input: "Input distribution in R²",
+  boundary: "Learned output over R²",
+  output: "Output latent: logits",
+  sampleMap: "Select or probe in R²",
+  prediction: "Prediction explanation",
+  activation: "Activations and ReLU gates",
+  journey: "Layer-by-layer journey",
+  network: "Forward pass and backpropagation graph",
+  curve: "Training curve with accuracy-jump markers",
+  jumpCompare: "Before/after comparison",
+  separability: "Class separability by layer",
+  transition: "Paired latent transition",
+  trajectory: "Selected point trajectory",
+  architecture: "Model architecture",
+  distributionGuide: "Distribution gallery",
+  pcaGuide: "PCA interpretation"
+};
+
+let latentCanvases = [];
+let currentPage = "explore";
+let fullView = null;
+
+let rng = mulberry32(7);
+let X = [];
+let Y = [];
+let selected = { kind: "sample", index: 0, x: null };
+let model = null;
+let training = false;
+let updateCount = 0;
+let metrics = { loss: NaN, acc: NaN };
+let history = [];
+let snapshots = [];
+let selectedJump = 0;
+let lastHistoryStep = -1;
+let lastSnapshotStep = -1;
+let lastSnapshotAcc = 0;
+let curveMarkers = [];
+let renderFrameSkip = 0;
+
+function mulberry32(seed) {
+  return function() {
+    let t = seed += 0x6D2B79F5;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function randn() {
+  let u = 0, v = 0;
+  while (u === 0) u = rng();
+  while (v === 0) v = rng();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+function rgb(c, a = 1) { return `rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},${a})`; }
+function mix(c0, c1, t, a = 1) {
+  t = clamp(t, 0, 1);
+  return rgb([lerp(c0[0], c1[0], t), lerp(c0[1], c1[1], t), lerp(c0[2], c1[2], t)], a);
+}
+function labelColor(y, a = 1) { return y === 0 ? rgb(BLUE, a) : rgb(ORANGE, a); }
+function signedColor(v, maxAbs, a = 1) {
+  const base = [34, 39, 55];
+  const t = maxAbs <= 1e-9 ? 0 : clamp(Math.abs(v) / maxAbs, 0, 1);
+  return v >= 0 ? mix(base, ORANGE, t, a) : mix(base, BLUE, t, a);
+}
+function deepCopy(x) { return JSON.parse(JSON.stringify(x)); }
+
+function selectedX() {
+  return selected.kind === "sample" ? X[selected.index] : selected.x;
+}
+function selectedY() {
+  return selected.kind === "sample" ? Y[selected.index] : null;
+}
+function selectedLabelText() {
+  if (selected.kind === "sample") return `sample #${selected.index}`;
+  return `probe [${selected.x[0].toFixed(2)}, ${selected.x[1].toFixed(2)}]`;
+}
+
+function updateDimsUI(preserve = true) {
+  const num = parseInt(controls.numHidden.value, 10);
+  const old = [];
+  document.querySelectorAll("#dimsWrap input[data-dim-index]").forEach(inp => old.push(parseInt(inp.value || "16", 10)));
+  controls.dimsWrap.innerHTML = "";
+
+  for (let i = 0; i < num; i++) {
+    const val = preserve && old[i] ? old[i] : (i === 0 ? 24 : 16);
+    const wrap = document.createElement("div");
+    wrap.className = "dimItem";
+    wrap.innerHTML = `<label>H${i+1}</label><input type="number" min="2" max="80" step="1" value="${val}" data-dim-index="${i}" />`;
+    controls.dimsWrap.appendChild(wrap);
+  }
+
+  document.querySelectorAll("#dimsWrap input[data-dim-index]").forEach(inp => {
+    inp.addEventListener("change", () => {
+      initModel();
+      buildDynamicUI();
+      renderActivePage();
+    });
+  });
+
+  updateStats();
+}
+
+function getHiddenDims() {
+  return Array.from(document.querySelectorAll("#dimsWrap input[data-dim-index]"))
+    .map(inp => clamp(parseInt(inp.value || "16", 10), 2, 80));
+}
+
+function buildDynamicUI() {
+  buildLatentCards();
+  buildJumpLayerSelect();
+  buildTransitionSelect();
+  bindFocusButtons();
+}
+
+function buildLatentCards() {
+  const grid = $("latentGrid");
+  grid.innerHTML = "";
+  latentCanvases = [];
+  const dims = getHiddenDims();
+
+  for (let i = 0; i < dims.length; i++) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="cardHeader">
+        <div>
+          <h3>Hidden layer ${i + 1}: latent PCA</h3>
+          <p>Projection of ReLU activations. Width ${dims[i]}. Selected point is ringed.</p>
+        </div>
+        <button class="fullBtn smallBtn" data-view="latent-${i}">Focus</button>
+      </div>
+      <canvas id="latentCanvas-${i}"></canvas>
+    `;
+    grid.appendChild(card);
+    latentCanvases.push(card.querySelector("canvas"));
+  }
+}
+
+function buildJumpLayerSelect() {
+  const sel = controls.jumpLayerSelect;
+  sel.innerHTML = "";
+  const dims = getHiddenDims();
+  for (let i = 0; i < dims.length; i++) {
+    const opt = document.createElement("option");
+    opt.value = String(i + 1);
+    opt.textContent = `Hidden layer ${i + 1}`;
+    sel.appendChild(opt);
+  }
+  const out = document.createElement("option");
+  out.value = String(dims.length + 1);
+  out.textContent = "Output logits";
+  sel.appendChild(out);
+}
+
+function buildTransitionSelect() {
+  const sel = controls.transitionSelect;
+  sel.innerHTML = "";
+  const n = getHiddenDims().length;
+  for (let s = 0; s <= n; s++) {
+    const opt = document.createElement("option");
+    opt.value = String(s);
+    opt.textContent = `${spaceName(s)} → ${spaceName(s + 1)}`;
+    sel.appendChild(opt);
+  }
+}
+
+function spaceName(spaceIndex) {
+  const n = getHiddenDims().length;
+  if (spaceIndex === 0) return "Input R²";
+  if (spaceIndex >= 1 && spaceIndex <= n) return `Hidden ${spaceIndex}`;
+  return "Output logits";
+}
+
+function generateData() {
+  const n = parseInt(controls.samples.value, 10);
+  const type = controls.dataset.value;
+  X = [];
+  Y = [];
+  rng = mulberry32(11 + n * 3 + type.length * 97);
+
+  function add(x, y, label) {
+    X.push([clamp(x, -1, 1), clamp(y, -1, 1)]);
+    Y.push(label);
+  }
+
+  if (type === "circle") {
+    for (let i = 0; i < n; i++) {
+      const x = -1 + 2 * rng();
+      const y = -1 + 2 * rng();
+      const r = Math.sqrt(x*x + y*y);
+      add(x, y, r + 0.04 * randn() > 0.55 ? 1 : 0);
+    }
+  } else if (type === "regions") {
+    const n0 = Math.floor(n / 2), n1 = n - n0;
+    for (let i = 0; i < n0; i++) add(-0.45 + 0.23 * randn(), -0.28 + 0.25 * randn(), 0);
+    for (let i = 0; i < n1; i++) add(0.45 + 0.23 * randn(), 0.32 + 0.25 * randn(), 1);
+    shuffleData();
+  } else if (type === "spirals") {
+    const half = Math.floor(n / 2);
+    for (let c = 0; c < 2; c++) {
+      for (let i = 0; i < half; i++) {
+        const t = 0.25 + 3.45 * Math.PI * (i / half);
+        const r = 0.06 + 0.84 * (i / half);
+        const a = t + c * Math.PI;
+        add(r * Math.cos(a) + 0.05 * randn(), r * Math.sin(a) + 0.05 * randn(), c);
+      }
+    }
+    while (X.length < n) {
+      const i = Math.floor(rng() * X.length);
+      add(X[i][0] + 0.02 * randn(), X[i][1] + 0.02 * randn(), Y[i]);
+    }
+    shuffleData();
+  } else if (type === "moons") {
+    const half = Math.floor(n / 2);
+    for (let i = 0; i < half; i++) {
+      const t = Math.PI * rng();
+      add(0.62 * Math.cos(t) - 0.22 + 0.055 * randn(), 0.62 * Math.sin(t) - 0.18 + 0.055 * randn(), 0);
+    }
+    for (let i = 0; i < n - half; i++) {
+      const t = Math.PI * rng();
+      add(0.62 * (1 - Math.cos(t)) - 0.40 + 0.055 * randn(), -0.62 * Math.sin(t) + 0.28 + 0.055 * randn(), 1);
+    }
+    shuffleData();
+  } else if (type === "xor") {
+    for (let i = 0; i < n; i++) {
+      const x = -1 + 2 * rng();
+      const y = -1 + 2 * rng();
+      let lab = x * y > 0 ? 1 : 0;
+      if (rng() < 0.025) lab = 1 - lab;
+      add(x, y, lab);
+    }
+  } else if (type === "rings") {
+    for (let i = 0; i < n; i++) {
+      const a = 2 * Math.PI * rng();
+      const r = Math.sqrt(rng()) * 0.98;
+      const x = r * Math.cos(a) + 0.02 * randn();
+      const y = r * Math.sin(a) + 0.02 * randn();
+      const lab = Math.floor((r + 0.04 * randn()) * 5.2) % 2;
+      add(x, y, lab);
+    }
+  } else if (type === "checker") {
+    for (let i = 0; i < n; i++) {
+      const x = -1 + 2 * rng();
+      const y = -1 + 2 * rng();
+      const gx = Math.floor((x + 1) * 2.5);
+      const gy = Math.floor((y + 1) * 2.5);
+      let lab = (gx + gy) % 2;
+      if (rng() < 0.025) lab = 1 - lab;
+      add(x, y, lab);
+    }
+  } else if (type === "sine") {
+    for (let i = 0; i < n; i++) {
+      const x = -1 + 2 * rng();
+      const y = -1 + 2 * rng();
+      const boundary = 0.37 * Math.sin(3.2 * Math.PI * x) + 0.12 * x;
+      add(x, y, y > boundary ? 1 : 0);
+    }
+  } else if (type === "pinwheel") {
+    const half = Math.floor(n / 2);
+    for (let c = 0; c < 2; c++) {
+      for (let i = 0; i < (c === 0 ? half : n - half); i++) {
+        const r = 0.10 + 0.88 * Math.sqrt(rng());
+        const a = c * Math.PI + 2.55 * r + 0.22 * randn();
+        add(r * Math.cos(a), r * Math.sin(a), c);
+      }
+    }
+    shuffleData();
+  } else if (type === "blobs") {
+    const centers = [
+      [-0.55, -0.55, 1], [0.55, 0.55, 1],
+      [-0.55, 0.55, 0], [0.55, -0.55, 0]
+    ];
+    for (let i = 0; i < n; i++) {
+      const c = centers[Math.floor(rng() * centers.length)];
+      add(c[0] + 0.18 * randn(), c[1] + 0.18 * randn(), c[2]);
+    }
+    shuffleData();
+  }
+
+  selected = { kind: "sample", index: 0, x: null };
+}
+
+function shuffleData() {
+  for (let i = X.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [X[i], X[j]] = [X[j], X[i]];
+    [Y[i], Y[j]] = [Y[j], Y[i]];
+  }
+}
+
+function denseLayer(fanIn, fanOut) {
+  const scale = Math.sqrt(2 / fanIn);
+  const W = [];
+  const mW = [];
+  const vW = [];
+  for (let i = 0; i < fanIn; i++) {
+    const row = [], mr = [], vr = [];
+    for (let j = 0; j < fanOut; j++) {
+      row.push(scale * randn());
+      mr.push(0);
+      vr.push(0);
+    }
+    W.push(row); mW.push(mr); vW.push(vr);
+  }
+  return { W, b: Array(fanOut).fill(0), mW, vW, mb: Array(fanOut).fill(0), vb: Array(fanOut).fill(0) };
+}
+
+function initModel() {
+  const dims = getHiddenDims();
+  rng = mulberry32(1234 + dims.reduce((a, b, i) => a + b * (17 + i), 0) + controls.dataset.value.length * 11);
+  const sizes = [2, ...dims, 2];
+  const layers = [];
+  for (let i = 0; i < sizes.length - 1; i++) layers.push(denseLayer(sizes[i], sizes[i + 1]));
+  model = { layers, hiddenDims: dims, t: 0 };
+  updateCount = 0;
+  history = [];
+  snapshots = [];
+  selectedJump = 0;
+  lastHistoryStep = -1;
+  lastSnapshotStep = -1;
+  lastSnapshotAcc = 0;
+  recordHistoryAndMaybeSnapshot(true, "initial");
+}
+
+function copyModelForSnapshot(src) {
+  return {
+    hiddenDims: src.hiddenDims.slice(),
+    layers: src.layers.map(layer => ({
+      W: layer.W.map(row => row.slice()),
+      b: layer.b.slice()
+    }))
+  };
+}
+
+function matVec(layer, x) {
+  const out = Array(layer.b.length).fill(0);
+  for (let j = 0; j < layer.b.length; j++) {
+    let s = layer.b[j];
+    for (let i = 0; i < x.length; i++) s += x[i] * layer.W[i][j];
+    out[j] = s;
+  }
+  return out;
+}
+function relu(v) { return v.map(z => Math.max(0, z)); }
+function softmax(logits) {
+  const m = Math.max(...logits);
+  const ex = logits.map(z => Math.exp(z - m));
+  const s = ex.reduce((a, b) => a + b, 0);
+  return ex.map(z => z / s);
+}
+
+function forwardWith(mdl, x) {
+  let a = x.slice();
+  const zs = [];
+  const activations = [];
+  for (let li = 0; li < mdl.layers.length; li++) {
+    const z = matVec(mdl.layers[li], a);
+    zs.push(z);
+    if (li < mdl.layers.length - 1) {
+      a = relu(z);
+      activations.push(a);
+    } else {
+      a = z.slice();
+    }
+  }
+  const logits = a.slice();
+  const probs = softmax(logits);
+  return { x: x.slice(), zs, activations, logits, probs };
+}
+
+function backwardWith(mdl, x, y) {
+  const f = forwardWith(mdl, x);
+  const deltas = Array(mdl.layers.length).fill(null);
+  const dlogits = [f.probs[0], f.probs[1]];
+  dlogits[y] -= 1;
+  deltas[mdl.layers.length - 1] = dlogits.slice();
+
+  for (let li = mdl.layers.length - 2; li >= 0; li--) {
+    const nextW = mdl.layers[li + 1].W;
+    const nextDelta = deltas[li + 1];
+    const z = f.zs[li];
+    const cur = Array(z.length).fill(0);
+    for (let i = 0; i < z.length; i++) {
+      let s = 0;
+      for (let j = 0; j < nextDelta.length; j++) s += nextW[i][j] * nextDelta[j];
+      cur[i] = z[i] > 0 ? s : 0;
+    }
+    deltas[li] = cur;
+  }
+  return { f, deltas };
+}
+
+function zeroGrads(mdl) {
+  return mdl.layers.map(layer => ({
+    W: layer.W.map(row => row.map(() => 0)),
+    b: layer.b.map(() => 0)
+  }));
+}
+
+function trainStep(numUpdates) {
+  const B = parseInt(controls.batch.value, 10);
+  const lr = parseFloat(controls.lr.value);
+
+  for (let s = 0; s < numUpdates; s++) {
+    const grads = zeroGrads(model);
+
+    for (let bi = 0; bi < B; bi++) {
+      const idx = Math.floor(rng() * X.length);
+      const x = X[idx], y = Y[idx];
+      const back = backwardWith(model, x, y);
+      const f = back.f;
+      const deltas = back.deltas;
+
+      for (let li = 0; li < model.layers.length; li++) {
+        const inputVec = li === 0 ? x : f.activations[li - 1];
+        const delta = deltas[li];
+        for (let i = 0; i < inputVec.length; i++) {
+          for (let j = 0; j < delta.length; j++) grads[li].W[i][j] += inputVec[i] * delta[j] / B;
+        }
+        for (let j = 0; j < delta.length; j++) grads[li].b[j] += delta[j] / B;
+      }
+    }
+
+    applyAdam(grads, lr);
+    updateCount++;
+  }
+}
+
+function applyAdam(grads, lr) {
+  const beta1 = 0.9, beta2 = 0.999, eps = 1e-8;
+  model.t++;
+  const t = model.t;
+
+  for (let li = 0; li < model.layers.length; li++) {
+    const layer = model.layers[li], g = grads[li];
+    for (let i = 0; i < layer.W.length; i++) {
+      for (let j = 0; j < layer.W[i].length; j++) {
+        layer.mW[i][j] = beta1 * layer.mW[i][j] + (1 - beta1) * g.W[i][j];
+        layer.vW[i][j] = beta2 * layer.vW[i][j] + (1 - beta2) * g.W[i][j] * g.W[i][j];
+        const mh = layer.mW[i][j] / (1 - Math.pow(beta1, t));
+        const vh = layer.vW[i][j] / (1 - Math.pow(beta2, t));
+        layer.W[i][j] -= lr * mh / (Math.sqrt(vh) + eps);
+      }
+    }
+    for (let j = 0; j < layer.b.length; j++) {
+      layer.mb[j] = beta1 * layer.mb[j] + (1 - beta1) * g.b[j];
+      layer.vb[j] = beta2 * layer.vb[j] + (1 - beta2) * g.b[j] * g.b[j];
+      const mh = layer.mb[j] / (1 - Math.pow(beta1, t));
+      const vh = layer.vb[j] / (1 - Math.pow(beta2, t));
+      layer.b[j] -= lr * mh / (Math.sqrt(vh) + eps);
+    }
+  }
+}
+
+function evaluateModel(mdl) {
+  let loss = 0, correct = 0;
+  for (let i = 0; i < X.length; i++) {
+    const f = forwardWith(mdl, X[i]);
+    const p = clamp(f.probs[Y[i]], 1e-9, 1 - 1e-9);
+    loss += -Math.log(p);
+    const pred = f.probs[1] > f.probs[0] ? 1 : 0;
+    if (pred === Y[i]) correct++;
+  }
+  return { loss: loss / X.length, acc: correct / X.length };
+}
+
+function recordHistoryAndMaybeSnapshot(force = false, reason = "") {
+  metrics = evaluateModel(model);
+
+  if (force || updateCount - lastHistoryStep >= 10) {
+    history.push({ step: updateCount, loss: metrics.loss, acc: metrics.acc });
+    lastHistoryStep = updateCount;
+    if (history.length > 700) history.shift();
+  }
+
+  const enoughAccJump = metrics.acc - lastSnapshotAcc >= 0.008;
+  const interval = updateCount - lastSnapshotStep >= 120;
+  const nearlySolved = metrics.acc > 0.985 && updateCount - lastSnapshotStep >= 40;
+
+  if (force || enoughAccJump || interval || nearlySolved) {
+    snapshots.push({
+      step: updateCount,
+      loss: metrics.loss,
+      acc: metrics.acc,
+      reason,
+      model: copyModelForSnapshot(model)
+    });
+    lastSnapshotStep = updateCount;
+    lastSnapshotAcc = metrics.acc;
+
+    if (snapshots.length > 42) snapshots.shift();
+    selectedJump = Math.max(0, getJumps().length - 1);
+  }
+}
+
+function computeAllForward(mdl = model) {
+  const hidden = mdl.hiddenDims.map(() => []);
+  const logits = [];
+  const probs = [];
+  for (let i = 0; i < X.length; i++) {
+    const f = forwardWith(mdl, X[i]);
+    for (let h = 0; h < hidden.length; h++) hidden[h].push(f.activations[h]);
+    logits.push(f.logits);
+    probs.push(f.probs);
+  }
+  return { hidden, logits, probs };
+}
+
+function computePCA(data) {
+  if (!data.length) return { coords: [], mean: [], v1: [], v2: [] };
+  const n = data.length, d = data[0].length;
+
+  if (d === 1) {
+    const meanVal = data.reduce((s, r) => s + r[0], 0) / n;
+    return {
+      coords: data.map(r => [r[0], 0]),
+      mean: [meanVal],
+      v1: [1],
+      v2: [0],
+      direct: true
+    };
+  }
+
+  if (d === 2) {
+    return {
+      coords: data.map(r => [r[0], r[1]]),
+      mean: [0, 0],
+      v1: [1, 0],
+      v2: [0, 1],
+      direct: true
+    };
+  }
+
+  const mean = Array(d).fill(0);
+  for (const row of data) for (let j = 0; j < d; j++) mean[j] += row[j] / n;
+  const centered = data.map(row => row.map((v, j) => v - mean[j]));
+
+  const C = Array.from({ length: d }, () => Array(d).fill(0));
+  for (const row of centered) {
+    for (let i = 0; i < d; i++) {
+      for (let j = i; j < d; j++) C[i][j] += row[i] * row[j] / Math.max(1, n - 1);
+    }
+  }
+  for (let i = 0; i < d; i++) for (let j = 0; j < i; j++) C[i][j] = C[j][i];
+
+  function dot(a, b) { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; }
+  function normalize(v) {
+    const norm = Math.sqrt(v.reduce((s, z) => s + z*z, 0)) || 1;
+    for (let i = 0; i < v.length; i++) v[i] /= norm;
+  }
+  function powerIter(M, seed) {
+    let v = Array(d).fill(0).map((_, i) => Math.sin(seed + 1.33 * i) + 0.1);
+    normalize(v);
+    for (let it = 0; it < 45; it++) {
+      const nv = Array(d).fill(0);
+      for (let i = 0; i < d; i++) for (let j = 0; j < d; j++) nv[i] += M[i][j] * v[j];
+      normalize(nv);
+      v = nv;
+    }
+    return v;
+  }
+
+  const v1 = powerIter(C, 0.23);
+  let lambda1 = 0;
+  for (let i = 0; i < d; i++) for (let j = 0; j < d; j++) lambda1 += v1[i] * C[i][j] * v1[j];
+  const C2 = C.map((row, i) => row.map((v, j) => v - lambda1 * v1[i] * v1[j]));
+  const v2 = powerIter(C2, 1.91);
+
+  return {
+    coords: centered.map(row => [dot(row, v1), dot(row, v2)]),
+    mean,
+    v1,
+    v2,
+    direct: false
+  };
+}
+
+function transformPCA(pca, vec) {
+  if (pca.direct && vec.length === 2) return [vec[0], vec[1]];
+  if (pca.direct && vec.length === 1) return [vec[0], 0];
+  let x = 0, y = 0;
+  for (let i = 0; i < vec.length; i++) {
+    const c = vec[i] - pca.mean[i];
+    x += c * pca.v1[i];
+    y += c * pca.v2[i];
+  }
+  return [x, y];
+}
+
+function setupHiDPI(canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const width = Math.max(80, Math.round(rect.width * dpr));
+  const height = Math.max(80, Math.round(rect.height * dpr));
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: rect.width || 300, h: rect.height || 260 };
+}
+
+function clear(ctx, w, h) {
+  ctx.fillStyle = BG;
+  ctx.fillRect(0, 0, w, h);
+}
+
+function text(ctx, s, x, y, opts = {}) {
+  ctx.fillStyle = opts.color || MUTED;
+  ctx.font = `${opts.weight || 400} ${opts.size || 12}px Inter, system-ui, sans-serif`;
+  ctx.textAlign = opts.align || "left";
+  ctx.textBaseline = opts.baseline || "alphabetic";
+  ctx.fillText(s, x, y);
+}
+
+function roundRect(ctx, x, y, w, h, r, fill = true, stroke = false) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  if (fill) ctx.fill();
+  if (stroke) ctx.stroke();
+}
+
+function line(ctx, x1, y1, x2, y2, color = LINE, width = 1) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+}
+
+function arrow(ctx, x1, y1, x2, y2, color = MUTED, width = 1.2) {
+  line(ctx, x1, y1, x2, y2, color, width);
+  const a = Math.atan2(y2 - y1, x2 - x1);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - 8 * Math.cos(a - 0.45), y2 - 8 * Math.sin(a - 0.45));
+  ctx.lineTo(x2 - 8 * Math.cos(a + 0.45), y2 - 8 * Math.sin(a + 0.45));
+  ctx.closePath();
+  ctx.fill();
+}
+
+function rectInset(rect, pad) {
+  return { x: rect.x + pad, y: rect.y + pad, w: rect.w - 2*pad, h: rect.h - 2*pad };
+}
+
+function boundsFor(points, fixed = false, selectedPoint = null) {
+  if (fixed) return { minX: -1.05, maxX: 1.05, minY: -1.05, maxY: 1.05 };
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  const all = selectedPoint ? points.concat([selectedPoint]) : points;
+  for (const p of all) {
+    if (!p || !Number.isFinite(p[0]) || !Number.isFinite(p[1])) continue;
+    minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]);
+    minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]);
+  }
+  if (!Number.isFinite(minX)) return { minX: -1, maxX: 1, minY: -1, maxY: 1 };
+  let dx = maxX - minX, dy = maxY - minY;
+  if (dx < 1e-6) { minX -= 1; maxX += 1; dx = 2; }
+  if (dy < 1e-6) { minY -= 1; maxY += 1; dy = 2; }
+  const padX = dx * 0.12, padY = dy * 0.12;
+  return { minX: minX - padX, maxX: maxX + padX, minY: minY - padY, maxY: maxY + padY };
+}
+
+function projectToRect(p, b, r, pad = 16) {
+  const x = r.x + pad + (p[0] - b.minX) / (b.maxX - b.minX) * (r.w - 2 * pad);
+  const y = r.y + r.h - pad - (p[1] - b.minY) / (b.maxY - b.minY) * (r.h - 2 * pad);
+  return [x, y];
+}
+
+function unprojectFromRect(px, py, b, r, pad = 16) {
+  const x = b.minX + (px - r.x - pad) / (r.w - 2 * pad) * (b.maxX - b.minX);
+  const y = b.minY + (r.y + r.h - pad - py) / (r.h - 2 * pad) * (b.maxY - b.minY);
+  return [clamp(x, -1.05, 1.05), clamp(y, -1.05, 1.05)];
+}
+
+function drawAxesInRect(ctx, b, r, pad = 16) {
+  ctx.strokeStyle = "rgba(75,82,106,0.75)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  if (b.minY < 0 && b.maxY > 0) {
+    const y0 = projectToRect([0, 0], b, r, pad)[1];
+    ctx.moveTo(r.x + pad, y0);
+    ctx.lineTo(r.x + r.w - pad, y0);
+  }
+  if (b.minX < 0 && b.maxX > 0) {
+    const x0 = projectToRect([0, 0], b, r, pad)[0];
+    ctx.moveTo(x0, r.y + pad);
+    ctx.lineTo(x0, r.y + r.h - pad);
+  }
+  ctx.stroke();
+}
+
+function drawScatterInRect(ctx, rect, points, selectedPoint, opts = {}) {
+  const b = boundsFor(points, !!opts.fixed, selectedPoint);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(rect.x, rect.y, rect.w, rect.h);
+  ctx.clip();
+
+  if (opts.background) {
+    ctx.fillStyle = opts.background;
+    ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+  }
+
+  if (opts.axes !== false) drawAxesInRect(ctx, b, rect, opts.pad || 18);
+
+  if (opts.diagonal) {
+    ctx.strokeStyle = "rgba(237,240,248,0.45)";
+    ctx.setLineDash([5, 5]);
+    ctx.lineWidth = 1.2;
+    const lo = Math.max(b.minX, b.minY);
+    const hi = Math.min(b.maxX, b.maxY);
+    const a = projectToRect([lo, lo], b, rect, opts.pad || 18);
+    const c = projectToRect([hi, hi], b, rect, opts.pad || 18);
+    ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(c[0], c[1]); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  for (let i = 0; i < points.length; i++) {
+    const [px, py] = projectToRect(points[i], b, rect, opts.pad || 18);
+    ctx.fillStyle = labelColor(Y[i], opts.alpha || 0.78);
+    ctx.beginPath();
+    ctx.arc(px, py, opts.radius || 2.8, 0, 2 * Math.PI);
+    ctx.fill();
+  }
+
+  if (selectedPoint) {
+    const [sx, sy] = projectToRect(selectedPoint, b, rect, opts.pad || 18);
+    ctx.fillStyle = selected.kind === "probe" ? "rgba(255,255,255,0.95)" : labelColor(selectedY() ?? 0, 1);
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.arc(sx, sy, opts.selectedRadius || 8, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  ctx.restore();
+
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+
+  if (opts.title) text(ctx, opts.title, rect.x + 10, rect.y + 18, { color: TEXT, size: 12, weight: 650 });
+  if (opts.footer) text(ctx, opts.footer, rect.x + 10, rect.y + rect.h - 10, { color: MUTED2, size: 11 });
+}
+
+function drawBoundaryInRect(ctx, rect, mdl, title = "P(orange)", selectedPoint = null) {
+  const gridW = Math.max(80, Math.round(rect.w * 0.45));
+  const gridH = Math.max(60, Math.round(rect.h * 0.45));
+  const img = ctx.createImageData(gridW, gridH);
+
+  for (let gy = 0; gy < gridH; gy++) {
+    for (let gx = 0; gx < gridW; gx++) {
+      const x = -1.05 + 2.10 * gx / (gridW - 1);
+      const y = 1.05 - 2.10 * gy / (gridH - 1);
+      const p = forwardWith(mdl, [x, y]).probs[1];
+      const r = Math.round(lerp(BLUE[0], ORANGE[0], p));
+      const g = Math.round(lerp(BLUE[1], ORANGE[1], p));
+      const b = Math.round(lerp(BLUE[2], ORANGE[2], p));
+      const k = 4 * (gy * gridW + gx);
+      img.data[k] = Math.round(0.56 * r + 0.44 * 16);
+      img.data[k+1] = Math.round(0.56 * g + 0.44 * 19);
+      img.data[k+2] = Math.round(0.56 * b + 0.44 * 29);
+      img.data[k+3] = 255;
+    }
+  }
+
+  const tmp = document.createElement("canvas");
+  tmp.width = gridW; tmp.height = gridH;
+  tmp.getContext("2d").putImageData(img, 0, 0);
+  ctx.drawImage(tmp, rect.x, rect.y, rect.w, rect.h);
+
+  const b = { minX: -1.05, maxX: 1.05, minY: -1.05, maxY: 1.05 };
+  drawAxesInRect(ctx, b, rect, 18);
+
+  for (let i = 0; i < X.length; i++) {
+    const [px, py] = projectToRect(X[i], b, rect, 18);
+    ctx.fillStyle = labelColor(Y[i], 0.90);
+    ctx.strokeStyle = "rgba(12,14,20,0.8)";
+    ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.arc(px, py, 2.8, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+  }
+
+  if (selectedPoint) {
+    const [sx, sy] = projectToRect(selectedPoint, b, rect, 18);
+    ctx.fillStyle = selected.kind === "probe" ? "#ffffff" : labelColor(selectedY() ?? 0, 1);
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.arc(sx, sy, 8, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+  }
+
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+  text(ctx, title, rect.x + 10, rect.y + 18, { color: TEXT, size: 12, weight: 650 });
+}
+
+function drawInput(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+  drawScatterInRect(ctx, { x: 0, y: 0, w, h }, X, selectedX(), {
+    fixed: true,
+    radius: 3.1,
+    title: "Input R²",
+    footer: controls.selectMode.value === "probe" ? "click anywhere to create a probe" : "click to select nearest sample"
+  });
+}
+
+function drawBoundary(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+  drawBoundaryInRect(ctx, { x: 0, y: 0, w, h }, model, "Learned P(orange)", selectedX());
+}
+
+function drawOutput(canvas, mdl = model) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+  const all = computeAllForward(mdl);
+  const sf = forwardWith(mdl, selectedX());
+  drawScatterInRect(ctx, { x: 0, y: 0, w, h }, all.logits, sf.logits, {
+    diagonal: true,
+    title: "Output logits",
+    footer: "x = blue logit, y = orange logit"
+  });
+}
+
+function drawLatent(canvas, layerIndex, mdl = model) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+  const all = computeAllForward(mdl);
+  const pca = computePCA(all.hidden[layerIndex]);
+  const sf = forwardWith(mdl, selectedX());
+  const sp = transformPCA(pca, sf.activations[layerIndex]);
+  const dims = mdl.hiddenDims[layerIndex];
+  drawScatterInRect(ctx, { x: 0, y: 0, w, h }, pca.coords, sp, {
+    title: `Hidden ${layerIndex + 1} ${dims === 2 ? "raw 2D" : "PCA view"}`,
+    footer: `width ${dims}; same labels, transformed representation`
+  });
+}
+
+function drawSampleMap(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+  drawBoundaryInRect(ctx, { x: 0, y: 0, w, h }, model, "Click in R² to inspect prediction", selectedX());
+  const f = forwardWith(model, selectedX());
+  const p = f.probs[1];
+  ctx.fillStyle = "rgba(16,19,29,0.88)";
+  roundRect(ctx, 14, h - 64, Math.min(430, w - 28), 48, 12, true, false);
+  text(ctx, `${selectedLabelText()}  ·  P(orange) ${p.toFixed(3)}`, 28, h - 38, { color: TEXT, size: 13, weight: 650 });
+  text(ctx, controls.selectMode.value === "probe" ? "Probe point has no ground-truth label." : "Nearest training sample is selected.", 28, h - 20, { color: MUTED, size: 11 });
+}
+
+function drawPrediction(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  const x = selectedX();
+  const y = selectedY();
+  const f = forwardWith(model, x);
+  const pred = f.probs[1] >= f.probs[0] ? 1 : 0;
+  const score = f.logits[1] - f.logits[0];
+  const known = y !== null;
+  const correct = known ? pred === y : null;
+
+  text(ctx, "Prediction for selected point", 18, 28, { color: TEXT, size: 15, weight: 700 });
+  text(ctx, `${selectedLabelText()}   x=[${x[0].toFixed(3)}, ${x[1].toFixed(3)}]`, 18, 50, { color: MUTED, size: 12 });
+
+  const barX = 32, barW = w - 90;
+  const ys = [92, 134];
+  const names = ["P(blue)", "P(orange)"];
+  for (let i = 0; i < 2; i++) {
+    text(ctx, names[i], barX, ys[i] - 8, { color: MUTED, size: 12 });
+    ctx.fillStyle = "#232838";
+    roundRect(ctx, barX, ys[i], barW, 20, 6, true, false);
+    ctx.fillStyle = labelColor(i, 0.95);
+    roundRect(ctx, barX, ys[i], barW * f.probs[i], 20, 6, true, false);
+    text(ctx, f.probs[i].toFixed(3), barX + barW + 10, ys[i] + 15, { color: TEXT, size: 12 });
+  }
+
+  const status = known ? (correct ? "correct" : "wrong") : "probe";
+  text(ctx, `logit difference z₁ − z₀ = ${score.toFixed(3)}   ·   prediction = ${pred === 1 ? "orange" : "blue"}   ·   ${status}`, 18, 180, {
+    color: correct === false ? rgb(YELLOW) : (known ? rgb(GREEN) : MUTED),
+    size: 12
+  });
+
+  // Final hidden contribution to orange-vs-blue margin.
+  const lastHidden = f.activations[f.activations.length - 1];
+  const outLayer = model.layers[model.layers.length - 1];
+  const contrib = lastHidden.map((a, i) => a * (outLayer.W[i][1] - outLayer.W[i][0]));
+  const biasDiff = outLayer.b[1] - outLayer.b[0];
+  const items = contrib.map((v, i) => ({ i, v })).sort((a, b) => Math.abs(b.v) - Math.abs(a.v)).slice(0, Math.min(14, contrib.length));
+  const maxAbs = Math.max(1e-6, ...items.map(d => Math.abs(d.v)), Math.abs(biasDiff));
+  const baseY = 220;
+  text(ctx, "Largest final-layer contributions to orange-vs-blue margin", 18, baseY - 16, { color: TEXT, size: 13, weight: 650 });
+  const zeroX = w * 0.52;
+  line(ctx, zeroX, baseY - 4, zeroX, h - 18, "rgba(255,255,255,0.13)", 1);
+
+  for (let k = 0; k < items.length; k++) {
+    const rowY = baseY + k * 17;
+    if (rowY > h - 16) break;
+    const d = items[k];
+    const bw = (w * 0.36) * Math.abs(d.v) / maxAbs;
+    ctx.fillStyle = d.v >= 0 ? rgb(ORANGE, 0.82) : rgb(BLUE, 0.82);
+    if (d.v >= 0) roundRect(ctx, zeroX, rowY - 9, bw, 11, 4, true, false);
+    else roundRect(ctx, zeroX - bw, rowY - 9, bw, 11, 4, true, false);
+    text(ctx, `h${d.i}`, 18, rowY, { color: MUTED, size: 11 });
+    text(ctx, d.v.toFixed(3), d.v >= 0 ? zeroX + bw + 5 : zeroX - bw - 5, rowY, {
+      color: MUTED,
+      size: 10,
+      align: d.v >= 0 ? "left" : "right"
+    });
+  }
+}
+
+function drawActivation(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  const x = selectedX();
+  const y = selectedY();
+  const pred = forwardWith(model, x).probs[1] >= 0.5 ? 1 : 0;
+  const target = y === null ? pred : y;
+  const back = backwardWith(model, x, target);
+  const f = back.f;
+
+  text(ctx, "Hidden activations and gradients", 18, 26, { color: TEXT, size: 15, weight: 700 });
+  text(ctx, y === null ? "Probe mode: gradients use predicted class as inspection target." : "Supervised gradient for selected training sample.", 18, 46, { color: MUTED, size: 12 });
+
+  const top = 76;
+  const rowGap = 48;
+  for (let li = 0; li < f.activations.length; li++) {
+    const y0 = top + li * rowGap;
+    if (y0 > h - 34) break;
+    const a = f.activations[li];
+    const d = back.deltas[li];
+    const active = f.zs[li].filter(z => z > 0).length;
+    text(ctx, `H${li + 1}: ${active}/${a.length} ReLUs active`, 18, y0 - 8, { color: TEXT, size: 12 });
+
+    const maxA = Math.max(1e-6, ...a.map(Math.abs));
+    const maxG = Math.max(1e-6, ...d.map(Math.abs));
+    const shown = Math.min(a.length, 64);
+    const gap = 2;
+    const bw = (w - 36 - gap * (shown - 1)) / shown;
+
+    for (let i = 0; i < shown; i++) {
+      const xx = 18 + i * (bw + gap);
+      const on = f.zs[li][i] > 0;
+      const aa = a[i] / maxA;
+      const gg = Math.abs(d[i]) / maxG;
+      ctx.fillStyle = on ? mix([48,55,72], GREEN, aa, 0.95) : "rgba(73,80,101,0.62)";
+      roundRect(ctx, xx, y0, bw, 18, 3, true, false);
+      ctx.strokeStyle = rgb(ORANGE, 0.15 + 0.7 * gg);
+      ctx.lineWidth = 1 + 2 * gg;
+      ctx.strokeRect(xx, y0, bw, 18);
+    }
+    if (a.length > shown) text(ctx, `showing ${shown}/${a.length}`, w - 18, y0 + 34, { align: "right", color: MUTED2, size: 10 });
+  }
+}
+
+function makeSpaceProjection(mdl, spaceIndex) {
+  const all = computeAllForward(mdl);
+  let vectors;
+  if (spaceIndex === 0) vectors = X.map(p => p.slice());
+  else if (spaceIndex <= mdl.hiddenDims.length) vectors = all.hidden[spaceIndex - 1];
+  else vectors = all.logits;
+
+  const sf = forwardWith(mdl, selectedX());
+  let selectedVec;
+  if (spaceIndex === 0) selectedVec = selectedX();
+  else if (spaceIndex <= mdl.hiddenDims.length) selectedVec = sf.activations[spaceIndex - 1];
+  else selectedVec = sf.logits;
+
+  const pca = computePCA(vectors);
+  return { coords: pca.coords, selectedCoord: transformPCA(pca, selectedVec), vectors, selectedVec, name: spaceName(spaceIndex), pca };
+}
+
+function drawJourney(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  const nSpaces = model.hiddenDims.length + 2;
+  const gap = 10;
+  const panelW = Math.max(135, (w - gap * (nSpaces + 1)) / nSpaces);
+  const panelH = h - 76;
+  const y0 = 44;
+
+  text(ctx, "Same point, different representation spaces", 18, 24, { color: TEXT, size: 15, weight: 700 });
+
+  for (let s = 0; s < nSpaces; s++) {
+    const x0 = gap + s * (panelW + gap);
+    const rect = { x: x0, y: y0, w: panelW, h: panelH };
+    const proj = makeSpaceProjection(model, s);
+    drawScatterInRect(ctx, rect, proj.coords, proj.selectedCoord, {
+      fixed: s === 0,
+      diagonal: s === nSpaces - 1,
+      radius: Math.max(1.7, Math.min(2.5, panelW / 80)),
+      selectedRadius: 6.5,
+      title: proj.name,
+      footer: s === 0 ? "raw input" : (s === nSpaces - 1 ? "logits" : "PCA")
+    });
+    if (s < nSpaces - 1) {
+      arrow(ctx, x0 + panelW + 1, y0 + panelH / 2, x0 + panelW + gap - 2, y0 + panelH / 2, "rgba(237,240,248,0.42)", 1.2);
+    }
+  }
+}
+
+function drawNetwork(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  const x = selectedX();
+  const y = selectedY();
+  const pred = forwardWith(model, x).probs[1] >= 0.5 ? 1 : 0;
+  const target = y === null ? pred : y;
+  const back = backwardWith(model, x, target);
+  const f = back.f;
+
+  const layers = [];
+  layers.push({ name: "input", vals: f.x, grads: [0,0], pre: null });
+  for (let i = 0; i < f.activations.length; i++) {
+    layers.push({ name: `H${i + 1}`, vals: f.activations[i], grads: back.deltas[i], pre: f.zs[i] });
+  }
+  layers.push({ name: "logits", vals: f.logits, grads: back.deltas[back.deltas.length - 1], pre: null });
+
+  const maxNodes = Math.max(6, Math.min(10, Math.floor(1300 / Math.max(1, layers.length) / 14)));
+  const xPos = [];
+  for (let li = 0; li < layers.length; li++) xPos.push(70 + li * ((w - 140) / Math.max(1, layers.length - 1)));
+
+  const pos = [];
+  for (let li = 0; li < layers.length; li++) {
+    const vals = layers[li].vals;
+    const count = Math.min(vals.length, maxNodes);
+    const top = 68, bottom = h - 78;
+    const arr = [];
+    for (let j = 0; j < count; j++) arr.push([xPos[li], count === 1 ? h / 2 : top + j * (bottom - top) / (count - 1)]);
+    pos.push(arr);
+  }
+
+  for (let li = 0; li < layers.length - 1; li++) {
+    const W = model.layers[li].W;
+    const fromN = pos[li].length, toN = pos[li + 1].length;
+    const maxAbs = Math.max(1e-6, ...W.flat().map(Math.abs));
+    for (let i = 0; i < fromN; i++) {
+      for (let j = 0; j < toN; j++) {
+        const weight = W[i][j];
+        const alpha = 0.07 + 0.30 * Math.abs(weight) / maxAbs;
+        ctx.strokeStyle = weight >= 0 ? rgb(GREEN, alpha) : rgb(YELLOW, alpha);
+        ctx.lineWidth = 0.6 + 2.5 * Math.abs(weight) / maxAbs;
+        line(ctx, pos[li][i][0], pos[li][i][1], pos[li+1][j][0], pos[li+1][j][1], ctx.strokeStyle, ctx.lineWidth);
+      }
+    }
+  }
+
+  for (let li = 0; li < layers.length; li++) {
+    const layer = layers[li];
+    const vals = layer.vals;
+    const grads = layer.grads || Array(vals.length).fill(0);
+    const maxVal = Math.max(1e-6, ...vals.slice(0, maxNodes).map(v => Math.abs(v)));
+    const maxGrad = Math.max(1e-6, ...grads.slice(0, maxNodes).map(v => Math.abs(v)));
+
+    for (let j = 0; j < pos[li].length; j++) {
+      const [xx, yy] = pos[li][j];
+      const val = vals[j];
+      const grad = grads[j] || 0;
+      const active = clamp(Math.abs(val) / maxVal, 0, 1);
+      const g = clamp(Math.abs(grad) / maxGrad, 0, 1);
+      const inactiveRelu = layer.pre && layer.pre[j] <= 0;
+
+      ctx.fillStyle = inactiveRelu ? "rgba(66,73,94,0.72)" : `rgba(237,240,248,${0.18 + 0.72 * active})`;
+      ctx.strokeStyle = inactiveRelu ? "rgba(100,108,132,0.8)" : "#edf0f8";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(xx, yy, 14, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+
+      ctx.strokeStyle = rgb(ORANGE, 0.22 + 0.72 * g);
+      ctx.lineWidth = 1.4 + 5 * g;
+      ctx.beginPath(); ctx.arc(xx, yy, 19, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * Math.max(0.035, g)); ctx.stroke();
+
+      text(ctx, li === 0 ? val.toFixed(2) : (Math.abs(val) > 9.9 ? val.toFixed(0) : val.toFixed(1)), xx, yy + 3, {
+        align: "center",
+        color: inactiveRelu ? MUTED : "#0f1117",
+        size: 10
+      });
+    }
+
+    text(ctx, layer.name, xPos[li], 30, { align: "center", color: TEXT, size: 13, weight: 650 });
+    if (vals.length > maxNodes) text(ctx, `showing ${maxNodes}/${vals.length}`, xPos[li], h - 34, { align: "center", color: MUTED2, size: 11 });
+  }
+
+  const p = f.probs[1];
+  text(ctx, `${selectedLabelText()}   P(orange)=${p.toFixed(3)}   ${y === null ? "probe gradients use predicted class" : "supervised gradients"}`, 18, h - 16, {
+    color: MUTED,
+    size: 12
+  });
+}
+
+function getJumps() {
+  const jumps = [];
+  for (let i = 1; i < snapshots.length; i++) {
+    const dAcc = snapshots[i].acc - snapshots[i - 1].acc;
+    if (dAcc > 0.001 || i === snapshots.length - 1) {
+      jumps.push({ before: i - 1, after: i, dAcc, dLoss: snapshots[i - 1].loss - snapshots[i].loss });
+    }
+  }
+  return jumps;
+}
+
+function drawCurve(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+  curveMarkers = [];
+
+  const padL = 54, padR = 28, padT = 32, padB = 44;
+  const x0 = padL, x1 = w - padR, y0 = h - padB, y1 = padT;
+  ctx.strokeStyle = "rgba(255,255,255,0.10)";
+  ctx.strokeRect(x0, y1, x1 - x0, y0 - y1);
+
+  text(ctx, "loss", x0, 20, { color: rgb(ORANGE), size: 12, weight: 650 });
+  text(ctx, "accuracy", x0 + 46, 20, { color: rgb(GREEN), size: 12, weight: 650 });
+
+  if (history.length < 2) {
+    text(ctx, "Train the model to collect history and representation snapshots.", w / 2, h / 2, { align: "center", color: MUTED, size: 13 });
+    return;
+  }
+
+  const minStep = history[0].step;
+  const maxStep = Math.max(minStep + 1, history[history.length - 1].step);
+  const maxLoss = Math.max(0.2, ...history.map(d => d.loss));
+  const minLoss = Math.min(0, ...history.map(d => d.loss));
+
+  function px(step) { return x0 + (step - minStep) / (maxStep - minStep) * (x1 - x0); }
+  function pyLoss(loss) { return y0 - (loss - minLoss) / Math.max(1e-9, maxLoss - minLoss) * (y0 - y1); }
+  function pyAcc(acc) { return y0 - acc * (y0 - y1); }
+
+  ctx.strokeStyle = rgb(ORANGE, 0.92);
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  history.forEach((d, i) => {
+    const xx = px(d.step), yy = pyLoss(d.loss);
+    if (i === 0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
+  });
+  ctx.stroke();
+
+  ctx.strokeStyle = rgb(GREEN, 0.92);
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  history.forEach((d, i) => {
+    const xx = px(d.step), yy = pyAcc(d.acc);
+    if (i === 0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
+  });
+  ctx.stroke();
+
+  const jumps = getJumps();
+  jumps.forEach((j, k) => {
+    const snap = snapshots[j.after];
+    const xx = px(snap.step), yy = pyAcc(snap.acc);
+    curveMarkers.push({ x: xx, y: yy, jumpIndex: k });
+    ctx.fillStyle = k === selectedJump ? "#ffffff" : rgb(YELLOW, 0.95);
+    ctx.strokeStyle = "rgba(0,0,0,0.65)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(xx, yy, k === selectedJump ? 6.5 : 4.5, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+  });
+
+  const jumpsText = jumps.length ? `selected jump ${selectedJump + 1}/${jumps.length}` : "no jump yet";
+  text(ctx, `${jumpsText}   snapshots ${snapshots.length}`, x1, 20, { align: "right", color: MUTED, size: 12 });
+  text(ctx, `step ${updateCount}`, x1, h - 14, { align: "right", color: MUTED, size: 12 });
+}
+
+function drawJumpCompare(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  const jumps = getJumps();
+  if (jumps.length === 0 || snapshots.length < 2) {
+    text(ctx, "No comparison available yet. Train the model to create accuracy-jump snapshots.", w / 2, h / 2, { align: "center", color: MUTED, size: 13 });
+    return;
+  }
+
+  selectedJump = clamp(selectedJump, 0, jumps.length - 1);
+  const jump = jumps[selectedJump];
+  const before = snapshots[jump.before];
+  const after = snapshots[jump.after];
+  const layer = parseInt(controls.jumpLayerSelect.value || "1", 10);
+
+  const pad = 14;
+  const cols = 3, rows = 2;
+  const gap = 12;
+  const panelW = (w - 2*pad - gap*(cols - 1)) / cols;
+  const panelH = (h - 58 - gap*(rows - 1) - pad) / rows;
+  const top = 44;
+
+  text(ctx, `Selected jump: step ${before.step} → ${after.step}   accuracy ${(100*before.acc).toFixed(1)}% → ${(100*after.acc).toFixed(1)}%   Δ ${(100*jump.dAcc).toFixed(2)} pts`, 16, 24, {
+    color: TEXT,
+    size: 14,
+    weight: 650
+  });
+
+  const panels = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      panels.push({ x: pad + c * (panelW + gap), y: top + r * (panelH + gap), w: panelW, h: panelH });
+    }
+  }
+
+  drawBoundaryInRect(ctx, panels[0], before.model, "Before: decision output", selectedX());
+  drawLayerSpaceInRect(ctx, panels[1], before.model, layer, `Before: ${spaceName(layer)}`, selectedX());
+  drawLayerSpaceInRect(ctx, panels[2], before.model, before.model.hiddenDims.length + 1, "Before: output logits", selectedX());
+
+  drawBoundaryInRect(ctx, panels[3], after.model, "After: decision output", selectedX());
+  drawLayerSpaceInRect(ctx, panels[4], after.model, layer, `After: ${spaceName(layer)}`, selectedX());
+  drawLayerSpaceInRect(ctx, panels[5], after.model, after.model.hiddenDims.length + 1, "After: output logits", selectedX());
+}
+
+function drawLayerSpaceInRect(ctx, rect, mdl, spaceIndex, title, selectedPoint) {
+  const all = computeAllForward(mdl);
+  let vectors;
+  if (spaceIndex === 0) vectors = X;
+  else if (spaceIndex <= mdl.hiddenDims.length) vectors = all.hidden[spaceIndex - 1];
+  else vectors = all.logits;
+
+  const f = forwardWith(mdl, selectedPoint);
+  let selectedVec;
+  if (spaceIndex === 0) selectedVec = selectedPoint;
+  else if (spaceIndex <= mdl.hiddenDims.length) selectedVec = f.activations[spaceIndex - 1];
+  else selectedVec = f.logits;
+
+  const pca = computePCA(vectors);
+  drawScatterInRect(ctx, rect, pca.coords, transformPCA(pca, selectedVec), {
+    fixed: spaceIndex === 0,
+    diagonal: spaceIndex > mdl.hiddenDims.length,
+    radius: 2.1,
+    selectedRadius: 6,
+    title
+  });
+}
+
+function separabilityForModel(mdl) {
+  const all = computeAllForward(mdl);
+  const spaces = [X, ...all.hidden, all.logits];
+  return spaces.map(vectors => {
+    const c0 = centroid(vectors, 0);
+    const c1 = centroid(vectors, 1);
+    const dist = euclid(c0, c1);
+    const spread0 = classSpread(vectors, 0, c0);
+    const spread1 = classSpread(vectors, 1, c1);
+    return dist / Math.max(1e-6, spread0 + spread1);
+  });
+}
+function centroid(vectors, cls) {
+  const d = vectors[0].length;
+  const c = Array(d).fill(0);
+  let count = 0;
+  for (let i = 0; i < vectors.length; i++) {
+    if (Y[i] !== cls) continue;
+    count++;
+    for (let j = 0; j < d; j++) c[j] += vectors[i][j];
+  }
+  for (let j = 0; j < d; j++) c[j] /= Math.max(1, count);
+  return c;
+}
+function classSpread(vectors, cls, c) {
+  let s = 0, count = 0;
+  for (let i = 0; i < vectors.length; i++) {
+    if (Y[i] !== cls) continue;
+    s += euclid(vectors[i], c) ** 2;
+    count++;
+  }
+  return Math.sqrt(s / Math.max(1, count));
+}
+function euclid(a, b) {
+  let s = 0;
+  for (let i = 0; i < a.length; i++) s += (a[i] - b[i]) ** 2;
+  return Math.sqrt(s);
+}
+
+function drawSeparability(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  const jumps = getJumps();
+  if (jumps.length === 0 || snapshots.length < 2) {
+    text(ctx, "Train to create snapshots. This view will compare class separability by layer.", w/2, h/2, { align: "center", color: MUTED, size: 13 });
+    return;
+  }
+
+  selectedJump = clamp(selectedJump, 0, jumps.length - 1);
+  const before = snapshots[jumps[selectedJump].before];
+  const after = snapshots[jumps[selectedJump].after];
+  const sb = separabilityForModel(before.model);
+  const sa = separabilityForModel(after.model);
+  const names = ["Input", ...before.model.hiddenDims.map((_, i) => `H${i+1}`), "Output"];
+  const maxVal = Math.max(0.1, ...sb, ...sa);
+
+  text(ctx, "Class-separation score: centroid distance / within-class spread", 18, 24, { color: TEXT, size: 14, weight: 650 });
+
+  const padL = 70, padR = 26, padT = 50, padB = 45;
+  const x0 = padL, x1 = w - padR, y0 = h - padB, y1 = padT;
+  const groupW = (x1 - x0) / names.length;
+
+  line(ctx, x0, y0, x1, y0, "rgba(255,255,255,0.13)", 1);
+  line(ctx, x0, y1, x0, y0, "rgba(255,255,255,0.13)", 1);
+
+  for (let i = 0; i < names.length; i++) {
+    const gx = x0 + i * groupW + groupW * 0.18;
+    const bw = groupW * 0.26;
+    const hb = (y0 - y1) * sb[i] / maxVal;
+    const ha = (y0 - y1) * sa[i] / maxVal;
+
+    ctx.fillStyle = rgb(BLUE, 0.78);
+    roundRect(ctx, gx, y0 - hb, bw, hb, 4, true, false);
+    ctx.fillStyle = rgb(ORANGE, 0.82);
+    roundRect(ctx, gx + bw + 4, y0 - ha, bw, ha, 4, true, false);
+
+    text(ctx, names[i], gx + bw, y0 + 18, { align: "center", color: MUTED, size: 11 });
+  }
+
+  text(ctx, "before", x1 - 112, 24, { color: rgb(BLUE), size: 12, weight: 650 });
+  text(ctx, "after", x1 - 56, 24, { color: rgb(ORANGE), size: 12, weight: 650 });
+}
+
+function drawTransition(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  const sourceIndex = parseInt(controls.transitionSelect.value || "0", 10);
+  const targetIndex = sourceIndex + 1;
+  const src = makeSpaceProjection(model, sourceIndex);
+  const dst = makeSpaceProjection(model, targetIndex);
+  const left = { x: 28, y: 54, w: w * 0.44, h: h - 90 };
+  const right = { x: w * 0.54, y: 54, w: w * 0.44 - 28, h: h - 90 };
+  const bL = boundsFor(src.coords, sourceIndex === 0, src.selectedCoord);
+  const bR = boundsFor(dst.coords, targetIndex === 0, dst.selectedCoord);
+
+  text(ctx, `${src.name} → ${dst.name}`, 18, 28, { color: TEXT, size: 16, weight: 700 });
+  text(ctx, "Thin lines connect the same sample before and after the transition.", 18, 47, { color: MUTED, size: 12 });
+
+  const linkCount = parseInt(controls.linkCount.value, 10);
+  const step = Math.max(1, Math.floor(X.length / linkCount));
+  for (let i = 0; i < X.length; i += step) {
+    const a = projectToRect(src.coords[i], bL, left, 18);
+    const b = projectToRect(dst.coords[i], bR, right, 18);
+    ctx.strokeStyle = labelColor(Y[i], 0.13);
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.bezierCurveTo(left.x + left.w + 40, a[1], right.x - 40, b[1], b[0], b[1]);
+    ctx.stroke();
+  }
+
+  drawScatterInRect(ctx, left, src.coords, src.selectedCoord, {
+    fixed: sourceIndex === 0,
+    diagonal: sourceIndex > model.hiddenDims.length,
+    title: src.name,
+    radius: 2.3
+  });
+  drawScatterInRect(ctx, right, dst.coords, dst.selectedCoord, {
+    fixed: targetIndex === 0,
+    diagonal: targetIndex > model.hiddenDims.length,
+    title: dst.name,
+    radius: 2.3
+  });
+
+  const sA = projectToRect(src.selectedCoord, bL, left, 18);
+  const sB = projectToRect(dst.selectedCoord, bR, right, 18);
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2.8;
+  ctx.beginPath();
+  ctx.moveTo(sA[0], sA[1]);
+  ctx.bezierCurveTo(left.x + left.w + 55, sA[1], right.x - 55, sB[1], sB[0], sB[1]);
+  ctx.stroke();
+}
+
+function drawTrajectory(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  const nSpaces = model.hiddenDims.length + 2;
+  const gap = 12;
+  const panelW = Math.max(130, (w - gap * (nSpaces + 1)) / nSpaces);
+  const panelH = h - 84;
+  const top = 54;
+
+  text(ctx, `Selected point trajectory: ${selectedLabelText()}`, 18, 28, { color: TEXT, size: 15, weight: 700 });
+  text(ctx, "Each panel uses its own axes, so the arrows indicate identity across spaces rather than geometric continuity.", 18, 47, { color: MUTED, size: 12 });
+
+  for (let s = 0; s < nSpaces; s++) {
+    const rect = { x: gap + s * (panelW + gap), y: top, w: panelW, h: panelH };
+    const proj = makeSpaceProjection(model, s);
+    drawScatterInRect(ctx, rect, proj.coords, proj.selectedCoord, {
+      fixed: s === 0,
+      diagonal: s === nSpaces - 1,
+      radius: 1.9,
+      selectedRadius: 7,
+      title: proj.name,
+      alpha: 0.48
+    });
+    if (s < nSpaces - 1) arrow(ctx, rect.x + rect.w + 2, top + panelH / 2, rect.x + rect.w + gap - 3, top + panelH / 2, "rgba(255,255,255,0.36)", 1.2);
+  }
+}
+
+function drawArchitecture(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  const dims = [2, ...model.hiddenDims, 2];
+  const names = ["Input R²", ...model.hiddenDims.map((_, i) => `Dense + ReLU H${i+1}`), "Dense → softmax"];
+  const n = dims.length;
+  const x0 = 60, x1 = w - 60;
+  const y = h * 0.46;
+
+  text(ctx, "Configurable MLP", 18, 28, { color: TEXT, size: 16, weight: 700 });
+  text(ctx, "Every hidden layer applies an affine map followed by ReLU. The final layer returns two logits.", 18, 50, { color: MUTED, size: 12 });
+
+  for (let i = 0; i < n; i++) {
+    const x = x0 + i * (x1 - x0) / Math.max(1, n - 1);
+    if (i < n - 1) arrow(ctx, x + 34, y, x0 + (i + 1) * (x1 - x0) / Math.max(1, n - 1) - 34, y, "rgba(237,240,248,0.35)", 1.4);
+
+    ctx.fillStyle = i === 0 ? rgb(BLUE, 0.75) : (i === n - 1 ? rgb(ORANGE, 0.75) : rgb(GREEN, 0.60));
+    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(x, y, 29, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+    text(ctx, String(dims[i]), x, y + 5, { align: "center", color: "#0f1117", size: 17, weight: 700 });
+    text(ctx, names[i], x, y + 52, { align: "center", color: TEXT, size: 11 });
+  }
+
+  text(ctx, "Training uses mini-batch Adam on cross-entropy. Backpropagation passes p − y from the logits through the output weights and then through ReLU gates.", 18, h - 32, {
+    color: MUTED,
+    size: 12
+  });
+}
+
+function drawDistributionGuide(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  const names = [
+    ["Circle", "radial boundary"],
+    ["Regions", "easy linear-ish split"],
+    ["Spirals", "strong nonlinear unfolding"],
+    ["Moons", "curved manifold"],
+    ["XOR", "quadrant remapping"],
+    ["Rings", "multiple radial bands"],
+    ["Checker", "local alternating regions"],
+    ["Sine", "wavy boundary"],
+    ["Pinwheel", "rotating arms"],
+    ["Blobs", "cluster recombination"]
+  ];
+
+  text(ctx, "Dataset guide", 18, 28, { color: TEXT, size: 16, weight: 700 });
+  const cols = w > 800 ? 5 : 3;
+  const cellW = (w - 36) / cols;
+  const cellH = (h - 58) / Math.ceil(names.length / cols);
+
+  for (let i = 0; i < names.length; i++) {
+    const c = i % cols, r = Math.floor(i / cols);
+    const x = 18 + c * cellW;
+    const y = 54 + r * cellH;
+    ctx.fillStyle = "rgba(255,255,255,0.045)";
+    roundRect(ctx, x, y, cellW - 10, cellH - 10, 12, true, false);
+    text(ctx, names[i][0], x + 12, y + 22, { color: TEXT, size: 13, weight: 650 });
+    text(ctx, names[i][1], x + 12, y + 42, { color: MUTED, size: 11 });
+  }
+}
+
+function drawPCAGuide(canvas) {
+  const { ctx, w, h } = setupHiDPI(canvas);
+  clear(ctx, w, h);
+
+  text(ctx, "Reading PCA latent views", 18, 28, { color: TEXT, size: 16, weight: 700 });
+  const lines = [
+    "A hidden layer can have 2 to 80 dimensions. PCA projects that cloud into two visible axes.",
+    "PCA preserves the strongest directions of variation, not every detail of the representation.",
+    "When the two classes separate in a hidden PCA, the network has likely found a more useful representation.",
+    "The output-logit view is not PCA: it is the actual final two-dimensional score space.",
+    "Latent-link views connect identical samples across spaces, showing how one representation is transported to the next."
+  ];
+  let y = 64;
+  for (const s of lines) {
+    ctx.fillStyle = "rgba(255,255,255,0.055)";
+    roundRect(ctx, 18, y - 18, w - 36, 38, 10, true, false);
+    text(ctx, s, 34, y + 5, { color: MUTED, size: 12 });
+    y += 48;
+  }
+}
+
+function renderActivePage() {
+  if (!model || X.length === 0) return;
+  metrics = evaluateModel(model);
+
+  if (currentPage === "explore") {
+    drawInput(canvases.input);
+    drawBoundary(canvases.boundary);
+    drawOutput(canvases.output);
+    for (let i = 0; i < latentCanvases.length; i++) drawLatent(latentCanvases[i], i);
+  } else if (currentPage === "sample") {
+    drawSampleMap(canvases.sampleMap);
+    drawPrediction(canvases.prediction);
+    drawActivation(canvases.activation);
+    drawJourney(canvases.journey);
+    drawNetwork(canvases.network);
+  } else if (currentPage === "jumps") {
+    drawCurve(canvases.curve);
+    drawJumpCompare(canvases.jumpCompare);
+    drawSeparability(canvases.separability);
+  } else if (currentPage === "links") {
+    drawTransition(canvases.transition);
+    drawTrajectory(canvases.trajectory);
+  } else if (currentPage === "mechanics") {
+    drawArchitecture(canvases.architecture);
+    drawDistributionGuide(canvases.distributionGuide);
+    drawPCAGuide(canvases.pcaGuide);
+  }
+
+  if (fullView) drawViewOnCanvas(fullView, $("modalCanvas"));
+  updateStats();
+}
+
+function drawViewOnCanvas(view, canvas) {
+  if (view === "input") drawInput(canvas);
+  else if (view === "boundary") drawBoundary(canvas);
+  else if (view === "output") drawOutput(canvas);
+  else if (view === "sampleMap") drawSampleMap(canvas);
+  else if (view === "prediction") drawPrediction(canvas);
+  else if (view === "activation") drawActivation(canvas);
+  else if (view === "journey") drawJourney(canvas);
+  else if (view === "network") drawNetwork(canvas);
+  else if (view === "curve") drawCurve(canvas);
+  else if (view === "jumpCompare") drawJumpCompare(canvas);
+  else if (view === "separability") drawSeparability(canvas);
+  else if (view === "transition") drawTransition(canvas);
+  else if (view === "trajectory") drawTrajectory(canvas);
+  else if (view === "architecture") drawArchitecture(canvas);
+  else if (view === "distributionGuide") drawDistributionGuide(canvas);
+  else if (view === "pcaGuide") drawPCAGuide(canvas);
+  else if (view.startsWith("latent-")) drawLatent(canvas, parseInt(view.split("-")[1], 10));
+}
+
+function updateStats() {
+  $("samplesVal").textContent = controls.samples.value;
+  $("numHiddenVal").textContent = controls.numHidden.value;
+  $("lrVal").textContent = Number(controls.lr.value).toFixed(3);
+  $("batchVal").textContent = controls.batch.value;
+  $("linkCountVal").textContent = controls.linkCount.value;
+
+  $("stepStat").textContent = String(updateCount);
+  $("lossStat").textContent = Number.isFinite(metrics.loss) ? metrics.loss.toFixed(4) : "—";
+  $("accStat").textContent = Number.isFinite(metrics.acc) ? `${(100 * metrics.acc).toFixed(1)}%` : "—";
+  $("selStat").textContent = selectedLabelText();
+
+  if (model && selectedX()) {
+    const f = forwardWith(model, selectedX());
+    const pred = f.probs[1] >= 0.5 ? 1 : 0;
+    $("predStat").textContent = `${pred === 1 ? "orange" : "blue"} (${f.probs[1].toFixed(3)})`;
+  }
+
+  const arch = [2, ...getHiddenDims(), 2].join(" → ");
+  $("archStat").textContent = arch;
+}
+
+function bindFocusButtons() {
+  document.querySelectorAll(".fullBtn").forEach(btn => {
+    btn.onclick = () => openFocus(btn.dataset.view);
+  });
+}
+
+function openFocus(view) {
+  fullView = view;
+  $("modalTitle").textContent = view.startsWith("latent-")
+    ? `Hidden layer ${parseInt(view.split("-")[1], 10) + 1}: latent PCA`
+    : (viewTitles[view] || "Focused chart");
+  $("modal").classList.remove("hidden");
+  drawViewOnCanvas(view, $("modalCanvas"));
+}
+
+function closeFocus() {
+  fullView = null;
+  $("modal").classList.add("hidden");
+}
+
+function selectFromR2Click(evt, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const px = evt.clientX - rect.left;
+  const py = evt.clientY - rect.top;
+  const b = { minX: -1.05, maxX: 1.05, minY: -1.05, maxY: 1.05 };
+  const r = { x: 0, y: 0, w: rect.width, h: rect.height };
+  const p = unprojectFromRect(px, py, b, r, 18);
+
+  if (controls.selectMode.value === "probe") {
+    selected = { kind: "probe", index: -1, x: p };
+  } else {
+    let best = 0, bestD = Infinity;
+    for (let i = 0; i < X.length; i++) {
+      const d = (X[i][0] - p[0])**2 + (X[i][1] - p[1])**2;
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    selected = { kind: "sample", index: best, x: null };
+  }
+  renderActivePage();
+}
+
+function selectRandomSample() {
+  selected = { kind: "sample", index: Math.floor(rng() * X.length), x: null };
+  renderActivePage();
+}
+
+function selectWrongSample() {
+  for (let i = 0; i < X.length; i++) {
+    const f = forwardWith(model, X[i]);
+    const pred = f.probs[1] >= 0.5 ? 1 : 0;
+    if (pred !== Y[i]) {
+      selected = { kind: "sample", index: i, x: null };
+      renderActivePage();
+      return;
+    }
+  }
+  selectRandomSample();
+}
+
+function curveClick(evt, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const mx = evt.clientX - rect.left, my = evt.clientY - rect.top;
+  let best = null, bestD = Infinity;
+  for (const m of curveMarkers) {
+    const d = (m.x - mx)**2 + (m.y - my)**2;
+    if (d < bestD) { bestD = d; best = m; }
+  }
+  if (best && bestD < 220) {
+    selectedJump = best.jumpIndex;
+    renderActivePage();
+  }
+}
+
+function resetDataAndModel() {
+  training = false;
+  controls.trainBtn.textContent = "Train";
+  generateData();
+  initModel();
+  buildDynamicUI();
+  renderActivePage();
+}
+
+function resetWeightsOnly() {
+  training = false;
+  controls.trainBtn.textContent = "Train";
+  initModel();
+  buildDynamicUI();
+  renderActivePage();
+}
+
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    currentPage = tab.dataset.page;
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    $(`page-${currentPage}`).classList.add("active");
+    renderActivePage();
+  });
+});
+
+controls.trainBtn.addEventListener("click", () => {
+  training = !training;
+  controls.trainBtn.textContent = training ? "Pause" : "Train";
+});
+
+controls.stepBtn.addEventListener("click", () => {
+  training = false;
+  controls.trainBtn.textContent = "Train";
+  trainStep(100);
+  recordHistoryAndMaybeSnapshot(false, "manual step");
+  renderActivePage();
+});
+
+controls.resetWeightsBtn.addEventListener("click", resetWeightsOnly);
+controls.resetAllBtn.addEventListener("click", resetDataAndModel);
+
+controls.dataset.addEventListener("change", resetDataAndModel);
+controls.samples.addEventListener("input", updateStats);
+controls.samples.addEventListener("change", resetDataAndModel);
+controls.numHidden.addEventListener("input", () => {
+  updateDimsUI(true);
+  buildDynamicUI();
+  updateStats();
+});
+controls.numHidden.addEventListener("change", resetWeightsOnly);
+controls.lr.addEventListener("input", updateStats);
+controls.batch.addEventListener("input", updateStats);
+controls.selectMode.addEventListener("change", renderActivePage);
+controls.jumpLayerSelect.addEventListener("change", renderActivePage);
+controls.transitionSelect.addEventListener("change", renderActivePage);
+controls.linkCount.addEventListener("input", () => { updateStats(); renderActivePage(); });
+
+$("selectRandomSample").addEventListener("click", selectRandomSample);
+$("selectWrongSample").addEventListener("click", selectWrongSample);
+$("prevJumpBtn").addEventListener("click", () => {
+  selectedJump = Math.max(0, selectedJump - 1);
+  renderActivePage();
+});
+$("nextJumpBtn").addEventListener("click", () => {
+  selectedJump = Math.min(Math.max(0, getJumps().length - 1), selectedJump + 1);
+  renderActivePage();
+});
+
+canvases.input.addEventListener("click", evt => selectFromR2Click(evt, canvases.input));
+canvases.boundary.addEventListener("click", evt => selectFromR2Click(evt, canvases.boundary));
+canvases.sampleMap.addEventListener("click", evt => selectFromR2Click(evt, canvases.sampleMap));
+canvases.curve.addEventListener("click", evt => curveClick(evt, canvases.curve));
+
+$("modalCanvas").addEventListener("click", evt => {
+  if (["input", "boundary", "sampleMap"].includes(fullView)) selectFromR2Click(evt, $("modalCanvas"));
+  else if (fullView === "curve") curveClick(evt, $("modalCanvas"));
+});
+
+$("modalClose").addEventListener("click", closeFocus);
+window.addEventListener("keydown", evt => { if (evt.key === "Escape") closeFocus(); });
+window.addEventListener("resize", renderActivePage);
+
+function animationLoop() {
+  if (training) {
+    trainStep(10);
+    recordHistoryAndMaybeSnapshot(false, "training");
+    renderFrameSkip = (renderFrameSkip + 1) % 2;
+    if (renderFrameSkip === 0) renderActivePage();
+  }
+  requestAnimationFrame(animationLoop);
+}
+
+updateDimsUI(false);
+generateData();
+initModel();
+buildDynamicUI();
+bindFocusButtons();
+renderActivePage();
+requestAnimationFrame(animationLoop);
+</script>
+</body>
+</html>
